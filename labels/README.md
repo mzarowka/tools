@@ -29,4 +29,4 @@ Opcja **Pomiń pierwsze N etykiet** pozwala dokończyć napoczęty arkusz.
 ## Plany
 
 - QR / kod kreskowy z treści etykiety.
-- Preset arkusza używanego w laboratorium (obecnie przykładowy Avery L7160).
+- Potwierdzić wydrukiem kalibracyjnym preset Avery Zweckform 3666 (wymiary przyjęte z równoważnego Avery L7651).

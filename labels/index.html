@@ -255,6 +255,12 @@ const KEYS = { state: 'labels.state.v1', presets: 'labels.presets.v1', calib: 'l
 
 const BUILTIN_PRESETS = [
   {
+    // Układ jak Avery L7651 (podziałka 40,6 × 21,2 mm); producent podaje 38 lub 38,1 mm szerokości.
+    name: 'Avery Zweckform 3666 · 5×13 · 38×21,2 mm',
+    sheet: { cols: 5, rows: 13, mt: 10.7, mb: 10.7, ml: 4.75, mr: 4.75, gx: 2.5, gy: 0 },
+    text: { font: 9, minFont: 5, pad: 1, align: 'center', bold: true },
+  },
+  {
     name: 'Avery L7160 · 3×7 · 63,5×38,1 mm (przykład)',
     sheet: { cols: 3, rows: 7, mt: 15.15, mb: 15.15, ml: 7.25, mr: 7.25, gx: 2.5, gy: 0 },
     text: { font: 12, minFont: 6, pad: 2, align: 'center', bold: true },
