@@ -1,0 +1,9 @@
+# OS / edytory
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# lokalne dane testowe
+*.local.csv
