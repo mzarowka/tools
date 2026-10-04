@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generator etykiet A4</title>
+<style>
+  /* Wymiar strony jest też w stałej PAGE w skrypcie — zmieniać razem. */
+  @page { size: A4; margin: 0; }
+
+  :root {
+    --bg: #e9edf0; --panel: #fff; --ink: #1d2327; --muted: #5f6b73;
+    --line: #d5dbe0; --accent: #1f6feb; --accent-ink: #fff;
+    --warn-bg: #fff4d6; --warn-ink: #6b4700; --err: #c62828;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; display: flex; height: 100vh;
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); background: var(--bg);
+  }
+
+  /* ---------- panel ---------- */
+  .panel { width: 390px; flex: none; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); }
+  .panel-top { position: sticky; top: 0; z-index: 2; background: var(--panel); padding: 14px 16px 12px; border-bottom: 1px solid var(--line); }
+  .panel-top h1 { font-size: 17px; margin: 0 0 10px; }
+  .panel section { padding: 12px 16px 14px; border-bottom: 1px solid var(--line); }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 10px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+  .field { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+  .field span { color: var(--muted); }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 6px; }
+  input[type=number], input[type=text], select {
+    font: inherit; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; width: 100%; background: #fff; color: var(--ink);
+  }
+  button {
+    font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 5px; background: #f6f8fa; color: var(--ink); cursor: pointer;
+  }
+  button:hover { background: #eef1f4; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; width: 100%; padding: 9px; }
+  button.small { padding: 2px 7px; font-size: 12px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+  .readout { font-size: 13px; margin-top: 8px; }
+  .readout.err { color: var(--err); font-weight: 600; }
+
+  .reminder { margin-top: 10px; padding: 8px 10px; background: var(--warn-bg); color: var(--warn-ink); border-radius: 6px; font-size: 12.5px; }
+  .reminder b { display: block; margin-bottom: 2px; }
+
+  .tabs { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-bottom: 12px; }
+  .tabs button { flex: 1; border: 0; border-radius: 0; background: #f6f8fa; }
+  .tabs button.active { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+  .drop { display: block; border: 2px dashed var(--line); border-radius: 8px; padding: 16px; text-align: center; color: var(--muted); cursor: pointer; }
+  .drop.over { border-color: var(--accent); background: #eef4ff; }
+  .drop input { display: none; }
+
+  .blocks { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .block { border: 1px solid var(--line); border-radius: 6px; padding: 7px; background: #fafbfc; }
+  .block-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; font-weight: 600; }
+  .block-head .tag { padding: 1px 6px; border-radius: 4px; background: #e3e8ee; }
+  .block-head .tag.counter { background: #dbe9ff; }
+  .block-head .spacer { flex: 1; }
+  .block .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .samples { font-family: ui-monospace, Consolas, monospace; font-size: 12px; background: #f6f8fa; border-radius: 5px; padding: 6px 8px; margin-top: 8px; white-space: pre-wrap; }
+
+  /* ---------- podgląd = wydruk ---------- */
+  .preview { flex: 1; overflow: auto; padding: 20px 24px 40px; }
+  .info { max-width: 210mm; margin: 0 auto 14px; font-size: 13px; color: var(--muted); }
+  .info .warn { color: var(--err); font-weight: 600; }
+
+  .sheet {
+    position: relative; width: 210mm; height: 297mm; overflow: hidden;
+    margin: 0 auto 20px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18);
+  }
+  .slot {
+    position: absolute; display: flex; align-items: center;
+    padding: var(--pad, 2mm);
+    outline: 0.2mm dashed #b8c4cc; outline-offset: -0.1mm;   /* tylko na ekranie */
+  }
+  .slot.overflow { background: #ffe3e3; }
+  .txt {
+    width: 100%; max-height: 100%; overflow: hidden;
+    white-space: pre; line-height: 1.15; text-align: var(--align, center);
+    font-family: Arial, Helvetica, sans-serif; color: #000;
+  }
+  .txt b { font-weight: 700; }
+  .frames .slot { outline: 0.2mm solid #000; }
+  .ruler { position: absolute; border: 0.2mm solid #000; font: 7pt Arial, sans-serif; color: #000; }
+  .ruler.h { left: 55mm; top: 3mm; width: 100mm; height: 2.5mm; border-top: 0; }
+  .ruler.v { left: 3mm; top: 98.5mm; width: 2.5mm; height: 100mm; border-left: 0; }
+  .ruler.h span { position: absolute; left: 50%; top: 2.6mm; transform: translateX(-50%); }
+  .ruler.v span { position: absolute; left: 3mm; top: 50%; transform: translateY(-50%); white-space: nowrap; }
+
+  @media print {
+    body { display: block; height: auto; background: #fff; }
+    .panel, .info { display: none !important; }
+    .preview { padding: 0; overflow: visible; }
+    /* 296,5 zamiast 297 mm: zapas na zaokrąglenia, żeby nie powstała pusta strona.
+       Etykiety są pozycjonowane od górnej krawędzi, więc to nie przesuwa wydruku. */
+    .sheet { margin: 0; height: 296.5mm; box-shadow: none; break-after: page; }
+    .sheet:last-child { break-after: auto; }
+    .slot { outline: none; }
+    .slot.overflow { background: none; }
+    .frames .slot { outline: 0.2mm solid #000; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="panel">
+  <div class="panel-top">
+    <h1>Generator etykiet A4</h1>
+    <button class="primary" id="btnPrint">Drukuj…</button>
+    <div class="reminder">
+      <b>W oknie drukowania ustaw:</b>
+      skala <b style="display:inline">100% / domyślna</b> (nie „dopasuj”) · marginesy <b style="display:inline">brak</b> · nagłówki i stopki <b style="display:inline">wyłączone</b>.
+      „Zapisz jako PDF” daje plik do archiwum.
+    </div>
+  </div>
+
+  <!-- ===== Źródło ===== -->
+  <section>
+    <h2>Treść etykiet</h2>
+    <div class="tabs">
+      <button data-mode="csv">Z pliku CSV</button>
+      <button data-mode="gen">Generator</button>
+    </div>
+
+    <div id="srcCsv">
+      <label class="drop" id="drop">
+        <input type="file" id="fileCsv" accept=".csv,.txt,text/csv">
+        Upuść plik CSV tutaj lub <u>kliknij, aby wybrać</u>
+        <div class="hint">Plik zostaje na tym komputerze — nic nie jest wysyłane.</div>
+      </label>
+      <div id="csvOpts" hidden>
+        <div class="grid2" style="margin-top:10px">
+          <label class="field"><span>Kolumna z etykietami</span><select id="csvCol" data-bind="csv.col"></select></label>
+          <label class="field"><span>Separator pól</span>
+            <select data-bind="csv.delim">
+              <option value="auto">automatycznie</option>
+              <option value=";">średnik ;</option>
+              <option value=",">przecinek ,</option>
+              <option value="&#9;">tabulator</option>
+            </select>
+          </label>
+        </div>
+        <label class="check"><input type="checkbox" data-bind="csv.header"> Pierwszy wiersz to nagłówek</label>
+        <p class="hint" id="csvInfo"></p>
+      </div>
+      <p class="hint">Jedna komórka = jedna etykieta. Podział linii w komórce (Alt+Enter w Excelu) daje kolejną linię na etykiecie.</p>
+    </div>
+
+    <div id="srcGen" hidden>
+      <div class="blocks" id="blocks"></div>
+      <div class="row">
+        <button class="small" data-add="text">+ tekst</button>
+        <button class="small" data-add="counter">+ licznik</button>
+        <button class="small" data-add="newline">+ nowa linia</button>
+      </div>
+      <div class="grid2" style="margin-top:10px">
+        <label class="field"><span>Separator między klockami</span><input type="text" data-bind="gen.sep" placeholder="(brak)"></label>
+        <label class="field" id="genModeField"><span>Kilka liczników</span>
+          <select data-bind="gen.mode">
+            <option value="nested">zagnieżdżone</option>
+            <option value="parallel">równoległe</option>
+          </select>
+        </label>
+        <label class="field" id="genCountField"><span>Liczba etykiet</span><input type="number" min="1" step="1" data-bind="gen.count"></label>
+      </div>
+      <p class="hint" id="genModeHint"></p>
+      <div class="samples" id="genSamples"></div>
+    </div>
+  </section>
+
+  <!-- ===== Wydruk ===== -->
+  <section>
+    <h2>Wydruk</h2>
+    <div class="grid2">
+      <label class="field"><span>Pomiń pierwsze N etykiet</span><input type="number" min="0" step="1" data-bind="startOffset"></label>
+      <label class="field"><span>Kopie każdej etykiety</span><input type="number" min="1" step="1" data-bind="copies"></label>
+    </div>
+    <p class="hint">„Pomiń” pozwala dokończyć napoczęty arkusz (liczone od lewej do prawej, potem w dół).</p>
+    <label class="check"><input type="checkbox" data-bind="frames"> Tryb kalibracji: ramki + linijki 100 mm</label>
+    <p class="hint">Wydrukuj na zwykłym papierze, przyłóż do arkusza etykiet pod światło. Linijki muszą mieć dokładnie 100 mm — jeśli nie, w oknie druku jest włączone skalowanie.</p>
+  </section>
+
+  <!-- ===== Arkusz ===== -->
+  <section>
+    <h2>Arkusz</h2>
+    <label class="field"><span>Preset</span><select id="presetSel"></select></label>
+    <div class="row" style="margin-top:6px">
+      <button class="small" id="btnPresetSave">Zapisz jako…</button>
+      <button class="small" id="btnPresetDel">Usuń</button>
+      <button class="small" id="btnPresetExport">Eksport</button>
+      <button class="small" id="btnPresetImport">Import</button>
+      <input type="file" id="filePreset" accept=".json,application/json" hidden>
+    </div>
+    <p class="hint">Preset = arkusz + ustawienia tekstu. Eksport/import pliku pozwala przenieść presety na inny komputer.</p>
+
+    <div class="grid2" style="margin-top:10px">
+      <label class="field"><span>Kolumny</span><input type="number" min="1" step="1" data-bind="sheet.cols"></label>
+      <label class="field"><span>Wiersze</span><input type="number" min="1" step="1" data-bind="sheet.rows"></label>
+      <label class="field"><span>Margines górny (mm)</span><input type="number" step="0.05" data-bind="sheet.mt"></label>
+      <label class="field"><span>Margines dolny (mm)</span><input type="number" step="0.05" data-bind="sheet.mb"></label>
+      <label class="field"><span>Margines lewy (mm)</span><input type="number" step="0.05" data-bind="sheet.ml"></label>
+      <label class="field"><span>Margines prawy (mm)</span><input type="number" step="0.05" data-bind="sheet.mr"></label>
+      <label class="field"><span>Odstęp między kolumnami (mm)</span><input type="number" min="0" step="0.05" data-bind="sheet.gx"></label>
+      <label class="field"><span>Odstęp między wierszami (mm)</span><input type="number" min="0" step="0.05" data-bind="sheet.gy"></label>
+    </div>
+    <div class="readout" id="sizeReadout"></div>
+  </section>
+
+  <!-- ===== Tekst ===== -->
+  <section>
+    <h2>Tekst</h2>
+    <div class="grid2">
+      <label class="field"><span>Czcionka (pt)</span><input type="number" min="1" step="0.5" data-bind="text.font"></label>
+      <label class="field"><span>Minimalna czcionka (pt)</span><input type="number" min="1" step="0.5" data-bind="text.minFont"></label>
+      <label class="field"><span>Margines wewnętrzny (mm)</span><input type="number" min="0" step="0.1" data-bind="text.pad"></label>
+      <label class="field"><span>Wyrównanie</span>
+        <select data-bind="text.align"><option value="center">do środka</option><option value="left">do lewej</option></select>
+      </label>
+    </div>
+    <label class="check"><input type="checkbox" data-bind="text.bold"> Pogrubiona pierwsza linia</label>
+    <p class="hint">Zbyt długi tekst jest automatycznie zmniejszany, aż do czcionki minimalnej. Etykiety, które i tak się nie mieszczą, są w podglądzie podświetlone na czerwono.</p>
+  </section>
+
+  <!-- ===== Kalibracja ===== -->
+  <section>
+    <h2>Korekta drukarki</h2>
+    <div class="grid2">
+      <label class="field"><span>Przesunięcie w prawo (mm)</span><input type="number" step="0.1" data-bind="calib.dx"></label>
+      <label class="field"><span>Przesunięcie w dół (mm)</span><input type="number" step="0.1" data-bind="calib.dy"></label>
+    </div>
+    <p class="hint">Dotyczy drukarki, nie arkusza — zapisywane osobno na tym komputerze. Wartości ujemne przesuwają w lewo / w górę.</p>
+  </section>
+</aside>
+
+<main class="preview">
+  <div class="info" id="info"></div>
+  <div id="sheets"></div>
+</main>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   Stałe i ustawienia domyślne
+   ===================================================================== */
+const PAGE = { w: 210, h: 297 };        // A4 w mm; musi zgadzać się z @page w CSS
+const MAX_LABELS = 10000;               // bezpiecznik dla generatora i CSV
+const KEYS = { state: 'labels.state.v1', presets: 'labels.presets.v1', calib: 'labels.calib.v1' };
+
+const BUILTIN_PRESETS = [
+  {
+    name: 'Avery L7160 · 3×7 · 63,5×38,1 mm (przykład)',
+    sheet: { cols: 3, rows: 7, mt: 15.15, mb: 15.15, ml: 7.25, mr: 7.25, gx: 2.5, gy: 0 },
+    text: { font: 12, minFont: 6, pad: 2, align: 'center', bold: true },
+  },
+];
+
+const DEFAULTS = {
+  mode: 'csv',
+  preset: BUILTIN_PRESETS[0].name,
+  sheet: { ...BUILTIN_PRESETS[0].sheet },
+  text: { ...BUILTIN_PRESETS[0].text },
+  startOffset: 0,
+  copies: 1,
+  frames: false,
+  csv: { col: 0, header: true, delim: 'auto' },
+  gen: {
+    sep: '-',
+    mode: 'nested',
+    count: 10,
+    blocks: [
+      { type: 'text', value: 'GDA' },
+      { type: 'counter', from: 1, to: 3, step: 1, digits: 2 },
+      { type: 'counter', from: 1, to: 10, step: 1, digits: 2 },
+    ],
+  },
+};
+
+/* =====================================================================
+   Pamięć przeglądarki (każdy dostęp w try/catch — może być niedostępna)
+   ===================================================================== */
+const store = {
+  get(key, fallback) {
+    try { const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); }
+    catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* brak pamięci — działamy dalej */ }
+  },
+};
+
+/* =====================================================================
+   Czyste funkcje: geometria, liczniki, CSV
+   ===================================================================== */
+const int = (v, min) => Math.max(min, Math.round(Number(v) || 0));
+
+function labelSize(s) {
+  const cols = int(s.cols, 1), rows = int(s.rows, 1);
+  return {
+    w: (PAGE.w - s.ml - s.mr - (cols - 1) * s.gx) / cols,
+    h: (PAGE.h - s.mt - s.mb - (rows - 1) * s.gy) / rows,
+  };
+}
+
+// Numer slotu → strona, wiersz, kolumna. Wypełnianie: od lewej do prawej, potem w dół.
+function slotToPos(slot, rows, cols) {
+  const perPage = rows * cols, inPage = slot % perPage;
+  return { page: Math.floor(slot / perPage), row: Math.floor(inPage / cols), col: inPage % cols };
+}
+
+function counterValues(c) {
+  const step = Math.round(c.step) || 1, out = [];
+  for (let v = Math.round(c.from); (step > 0 ? v <= c.to : v >= c.to) && out.length <= MAX_LABELS; v += step) out.push(v);
+  return out;
+}
+
+function formatNumber(v, digits) {
+  const s = String(Math.abs(v)).padStart(int(digits, 0), '0');
+  return v < 0 ? '-' + s : s;
+}
+
+// Składa jedną etykietę z klocków; vals = kolejne wartości liczników.
+function compose(blocks, vals, sep) {
+  let out = '', k = 0, inLine = false;
+  for (const b of blocks) {
+    if (b.type === 'newline') { out += '\n'; inLine = false; continue; }
+    const piece = b.type === 'text' ? b.value : formatNumber(vals[k++], b.digits);
+    if (inLine) out += sep;
+    out += piece;
+    inLine = true;
+  }
+  return out;
+}
+
+// Zwraca { labels, truncated }.
+function generateLabels(gen) {
+  const counters = gen.blocks.filter(b => b.type === 'counter');
+  let tuples;
+
+  if (counters.length === 0 || gen.mode === 'parallel') {
+    // Wszystkie liczniki rosną razem; liczbę etykiet podaje użytkownik.
+    const n = Math.min(int(gen.count, 0), MAX_LABELS);
+    tuples = Array.from({ length: n }, (_, i) => counters.map(c => Math.round(c.from) + i * (Math.round(c.step) || 1)));
+    return { labels: tuples.map(t => compose(gen.blocks, t, gen.sep)), truncated: int(gen.count, 0) > MAX_LABELS };
+  }
+
+  // Zagnieżdżone, jak licznik kilometrów: ostatni licznik zmienia się najszybciej.
+  const seqs = counters.map(counterValues);
+  const total = seqs.reduce((p, s) => p * s.length, 1);
+  const n = Math.min(total, MAX_LABELS);
+  tuples = [];
+  for (let i = 0; i < n; i++) {
+    const t = new Array(seqs.length);
+    let rest = i;
+    for (let j = seqs.length - 1; j >= 0; j--) { t[j] = seqs[j][rest % seqs[j].length]; rest = Math.floor(rest / seqs[j].length); }
+    tuples.push(t);
+  }
+  return { labels: tuples.map(t => compose(gen.blocks, t, gen.sep)), truncated: total > MAX_LABELS };
+}
+
+function detectDelimiter(text) {
+  const firstLine = text.split(/\r?\n/, 1)[0].replace(/"[^"]*"/g, '');
+  const counts = [';', ',', '\t'].map(d => [d, firstLine.split(d).length - 1]);
+  counts.sort((a, b) => b[1] - a[1]);
+  return counts[0][1] > 0 ? counts[0][0] : ',';
+}
+
+// Parser CSV (RFC 4180): pola w cudzysłowach, "" jako cudzysłów, nowe linie wewnątrz pól.
+function parseCSV(text, delim) {
+  const rows = [];
+  let row = [], field = '', quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else quoted = false; }
+      else field += c;
+    } else if (c === '"') quoted = true;
+    else if (c === delim) { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); rows.push(row); row = []; field = '';
+    } else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(f => f.trim() !== ''));
+}
+
+// Polski Excel często zapisuje CSV w Windows-1250 zamiast UTF-8.
+async function readTextFile(file) {
+  const buf = await file.arrayBuffer();
+  try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(buf), encoding: 'UTF-8' }; }
+  catch { return { text: new TextDecoder('windows-1250').decode(buf), encoding: 'Windows-1250' }; }
+}
+
+const escapeHtml = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const mm = v => v.toFixed(3) + 'mm';
+const plNum = (v, d = 2) => v.toFixed(d).replace('.', ',');
+
+/* =====================================================================
+   Stan aplikacji
+   ===================================================================== */
+const saved = store.get(KEYS.state, {});
+const state = {
+  ...DEFAULTS, ...saved,
+  sheet: { ...DEFAULTS.sheet, ...saved.sheet },
+  text: { ...DEFAULTS.text, ...saved.text },
+  csv: { ...DEFAULTS.csv, ...saved.csv },
+  gen: { ...DEFAULTS.gen, ...saved.gen },
+  startOffset: 0,                                   // zawsze od zera po przeładowaniu
+  calib: { dx: 0, dy: 0, ...store.get(KEYS.calib, {}) },
+};
+let csvData = { text: '', rows: [], encoding: '', name: '' };   // dane nie trafiają do pamięci
+
+function saveState() {
+  const { calib, startOffset, ...rest } = state;
+  store.set(KEYS.state, rest);
+  store.set(KEYS.calib, calib);
+}
+
+const getPath = (obj, path) => path.split('.').reduce((o, k) => o?.[k], obj);
+function setPath(obj, path, value) {
+  const keys = path.split('.'), last = keys.pop();
+  keys.reduce((o, k) => o[k], obj)[last] = value;
+}
+
+/* =====================================================================
+   Źródła etykiet
+   ===================================================================== */
+function csvRows() {
+  const delim = state.csv.delim === 'auto' ? detectDelimiter(csvData.text) : state.csv.delim;
+  return { rows: csvData.text ? parseCSV(csvData.text, delim) : [], delim };
+}
+
+function currentLabels() {
+  if (state.mode === 'gen') return generateLabels(state.gen);
+  const body = state.csv.header ? csvData.rows.slice(1) : csvData.rows;
+  const labels = body.map(r => (r[state.csv.col] ?? '').trim()).filter(Boolean);
+  return { labels: labels.slice(0, MAX_LABELS), truncated: labels.length > MAX_LABELS };
+}
+
+/* =====================================================================
+   Render arkuszy
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+
+function labelHtml(text) {
+  const lines = text.split('\n').map(escapeHtml);
+  if (state.text.bold) lines[0] = '<b>' + lines[0] + '</b>';
+  return lines.join('\n');
+}
+
+function render() {
+  const s = state.sheet, cols = int(s.cols, 1), rows = int(s.rows, 1);
+  const { w, h } = labelSize(s);
+  const sizeOk = w > 0 && h > 0;
+
+  $('sizeReadout').textContent = sizeOk
+    ? `Etykieta: ${plNum(w)} × ${plNum(h)} mm (${cols * rows} na arkuszu)`
+    : 'Marginesy i odstępy są większe niż arkusz — sprawdź wartości.';
+  $('sizeReadout').className = 'readout' + (sizeOk ? '' : ' err');
+
+  const { labels: base, truncated } = currentLabels();
+  const copies = int(state.copies, 1);
+  const labels = base.flatMap(l => Array(copies).fill(l));
+  const offset = int(state.startOffset, 0);
+  const perPage = rows * cols;
+  const pages = sizeOk ? Math.max(1, Math.ceil((offset + labels.length) / perPage)) : 0;
+
+  const sheetsEl = $('sheets');
+  sheetsEl.className = state.frames ? 'frames' : '';
+  sheetsEl.style.setProperty('--pad', mm(Math.max(0, state.text.pad)));
+  sheetsEl.style.setProperty('--align', state.text.align);
+
+  const html = [];
+  for (let p = 0; p < pages; p++) {
+    html.push('<div class="sheet">');
+    if (state.frames && p === 0) {
+      html.push('<div class="ruler h"><span>100 mm</span></div><div class="ruler v"><span>100 mm</span></div>');
+    }
+    for (let i = 0; i < perPage; i++) {
+      const slot = p * perPage + i;
+      const { row, col } = slotToPos(slot, rows, cols);
+      const left = s.ml + col * (w + s.gx) + state.calib.dx;
+      const top = s.mt + row * (h + s.gy) + state.calib.dy;
+      const text = labels[slot - offset];
+      html.push(`<div class="slot" style="left:${mm(left)};top:${mm(top)};width:${mm(w)};height:${mm(h)}">`
+        + (text !== undefined ? `<div class="txt">${labelHtml(text)}</div>` : '') + '</div>');
+    }
+    html.push('</div>');
+  }
+  sheetsEl.innerHTML = html.join('');
+
+  const overflow = autoShrink();
+  renderInfo(labels.length, base.length, pages, overflow, truncated);
+  if (state.mode === 'gen') renderGenSamples(base);
+}
+
+// Zmniejsza czcionkę w etykietach, które się nie mieszczą; zwraca liczbę tych, które nadal wystają.
+function autoShrink() {
+  const { font, minFont } = state.text;
+  const min = Math.min(minFont, font);
+  const fits = el => el.scrollWidth <= el.clientWidth + 0.5 && el.scrollHeight <= el.clientHeight + 0.5;
+  let overflow = 0;
+  for (const el of document.querySelectorAll('#sheets .txt')) {
+    let size = font;
+    el.style.fontSize = size + 'pt';
+    if (fits(el)) continue;
+    const ratio = Math.min(el.clientWidth / el.scrollWidth, el.clientHeight / el.scrollHeight);
+    size = Math.max(min, Math.floor(size * ratio * 2) / 2);            // szybkie oszacowanie…
+    el.style.fontSize = size + 'pt';
+    while (!fits(el) && size > min) {                                   // …i dociąganie krokiem 0,5 pt
+      size = Math.max(min, size - 0.5);
+      el.style.fontSize = size + 'pt';
+    }
+    if (!fits(el)) { el.parentElement.classList.add('overflow'); overflow++; }
+  }
+  return overflow;
+}
+
+function renderInfo(total, unique, pages, overflow, truncated) {
+  const parts = [];
+  if (!total) parts.push(state.mode === 'csv' ? 'Wczytaj plik CSV, aby zobaczyć etykiety.' : 'Dodaj klocki, aby wygenerować etykiety.');
+  else parts.push(`${total} etykiet${unique !== total ? ` (${unique} × ${int(state.copies, 1)} kopie)` : ''} · arkuszy: ${pages}`);
+  if (overflow) parts.push(`<span class="warn">${overflow} etykiet nie mieści się nawet przy czcionce minimalnej (czerwone).</span>`);
+  if (truncated) parts.push(`<span class="warn">Przycięto do ${MAX_LABELS} etykiet.</span>`);
+  $('info').innerHTML = parts.join(' · ');
+}
+
+let renderTimer = 0;
+function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(render, 120); }
+
+/* =====================================================================
+   UI: powiązanie pól z ustawieniami
+   ===================================================================== */
+function readInput(el) {
+  if (el.type === 'checkbox') return el.checked;
+  if (el.type === 'number') {
+    const v = parseFloat(String(el.value).replace(',', '.'));
+    return Number.isFinite(v) ? v : undefined;          // puste pole w trakcie pisania — ignorujemy
+  }
+  if (el.id === 'csvCol') return Number(el.value);
+  return el.value;
+}
+
+function syncInputs() {
+  for (const el of document.querySelectorAll('[data-bind]')) {
+    const v = getPath(state, el.dataset.bind);
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+  }
+}
+
+function onFieldChange(el) {
+  const value = readInput(el);
+  if (value === undefined) return;
+  setPath(state, el.dataset.bind, value);
+  const path = el.dataset.bind;
+  if (path === 'csv.delim' || path === 'csv.header') reparseCsv();
+  if (path === 'gen.mode') renderBlocks();
+  saveState();
+  scheduleRender();
+}
+
+document.querySelectorAll('[data-bind]').forEach(el => {
+  el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', () => onFieldChange(el));
+});
+
+/* ---------- tryb ---------- */
+function setMode(mode) {
+  state.mode = mode;
+  document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  $('srcCsv').hidden = mode !== 'csv';
+  $('srcGen').hidden = mode !== 'gen';
+  saveState();
+  render();
+}
+document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+/* ---------- CSV ---------- */
+function reparseCsv() {
+  const { rows, delim } = csvRows();
+  csvData.rows = rows;
+  const width = rows.reduce((m, r) => Math.max(m, r.length), 0);
+  const head = state.csv.header ? rows[0] || [] : [];
+  const sample = (state.csv.header ? rows[1] : rows[0]) || [];
+  if (state.csv.col >= width) state.csv.col = 0;
+  $('csvCol').innerHTML = Array.from({ length: width }, (_, i) => {
+    const name = head[i]?.trim() || `Kolumna ${i + 1}`;
+    const ex = (sample[i] || '').split('\n')[0].slice(0, 24);
+    return `<option value="${i}">${escapeHtml(name)}${ex ? ' — np. ' + escapeHtml(ex) : ''}</option>`;
+  }).join('');
+  $('csvCol').value = state.csv.col;
+  const delimName = { ';': 'średnik', ',': 'przecinek', '\t': 'tabulator' }[delim] || delim;
+  $('csvInfo').textContent = `${csvData.name}: ${rows.length} wierszy, ${width} kolumn · kodowanie ${csvData.encoding} · separator: ${delimName}`;
+  $('csvOpts').hidden = false;
+}
+
+async function loadCsvFile(file) {
+  if (!file) return;
+  const { text, encoding } = await readTextFile(file);
+  csvData = { text, encoding, name: file.name, rows: [] };
+  reparseCsv();
+  setMode('csv');
+}
+
+$('fileCsv').addEventListener('change', e => loadCsvFile(e.target.files[0]));
+const drop = $('drop');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); loadCsvFile(e.dataTransfer.files[0]); });
+
+/* ---------- generator: klocki ---------- */
+const BLOCK_DEFAULTS = {
+  text: () => ({ type: 'text', value: '' }),
+  counter: () => ({ type: 'counter', from: 1, to: 10, step: 1, digits: 2 }),
+  newline: () => ({ type: 'newline' }),
+};
+
+function renderBlocks() {
+  const blocks = state.gen.blocks;
+  const parallel = state.gen.mode === 'parallel';
+  const nCounters = blocks.filter(b => b.type === 'counter').length;
+  let counterNo = 0;
+
+  $('blocks').innerHTML = blocks.map((b, i) => {
+    const head = (tag, cls = '') => `<div class="block-head"><span class="tag ${cls}">${tag}</span><span class="spacer"></span>
+      <button class="small" data-act="up" data-i="${i}" ${i === 0 ? 'disabled' : ''} title="W górę">↑</button>
+      <button class="small" data-act="down" data-i="${i}" ${i === blocks.length - 1 ? 'disabled' : ''} title="W dół">↓</button>
+      <button class="small" data-act="del" data-i="${i}" title="Usuń">✕</button></div>`;
+    if (b.type === 'text') {
+      return `<div class="block">${head('Tekst stały')}
+        <input type="text" data-i="${i}" data-k="value" value="${escapeHtml(b.value)}" placeholder="np. GDA"></div>`;
+    }
+    if (b.type === 'newline') return `<div class="block">${head('↵ Nowa linia')}</div>`;
+    counterNo++;
+    const num = (k, label, extra = '') => `<label class="field"><span>${label}</span>
+      <input type="number" step="1" ${extra} data-i="${i}" data-k="${k}" value="${b[k]}"></label>`;
+    return `<div class="block">${head('Licznik ' + counterNo, 'counter')}<div class="grid4">
+      ${num('from', 'od')}${parallel ? '' : num('to', 'do')}${num('step', 'krok')}${num('digits', 'cyfry', 'min="0"')}
+      </div></div>`;
+  }).join('') || '<p class="hint">Brak klocków — dodaj tekst lub licznik.</p>';
+
+  const showMode = nCounters > 1;
+  $('genModeField').hidden = !showMode;
+  $('genCountField').hidden = !(parallel || nCounters === 0);
+  $('genModeHint').textContent = !showMode ? ''
+    : parallel ? 'Równoległe: wszystkie liczniki rosną razem (01-11, 02-12, …). Liczbę etykiet podajesz sam.'
+               : 'Zagnieżdżone: ostatni licznik zmienia się najszybciej (01-01, 01-02, … 02-01). Liczba etykiet = iloczyn zakresów.';
+}
+
+function renderGenSamples(labels) {
+  const show = labels.slice(0, 5).map(l => l.replace(/\n/g, ' ↵ '));
+  $('genSamples').textContent = labels.length
+    ? show.join('\n') + (labels.length > 5 ? `\n… razem ${labels.length}` : '')
+    : '(brak etykiet)';
+}
+
+$('blocks').addEventListener('input', e => {
+  const el = e.target, i = el.dataset.i, k = el.dataset.k;
+  if (i === undefined || !k) return;
+  const block = state.gen.blocks[i];
+  if (k === 'value') block.value = el.value;
+  else { const v = readInput(el); if (v === undefined) return; block[k] = Math.round(v); }
+  saveState();
+  scheduleRender();
+});
+
+$('blocks').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const blocks = state.gen.blocks, i = Number(btn.dataset.i);
+  if (btn.dataset.act === 'del') blocks.splice(i, 1);
+  if (btn.dataset.act === 'up' && i > 0) [blocks[i - 1], blocks[i]] = [blocks[i], blocks[i - 1]];
+  if (btn.dataset.act === 'down' && i < blocks.length - 1) [blocks[i + 1], blocks[i]] = [blocks[i], blocks[i + 1]];
+  renderBlocks(); saveState(); render();
+});
+
+document.querySelectorAll('[data-add]').forEach(btn => btn.addEventListener('click', () => {
+  state.gen.blocks.push(BLOCK_DEFAULTS[btn.dataset.add]());
+  renderBlocks(); saveState(); render();
+}));
+
+/* ---------- presety ---------- */
+let userPresets = store.get(KEYS.presets, []);
+const allPresets = () => [...BUILTIN_PRESETS, ...userPresets];
+const isBuiltin = name => BUILTIN_PRESETS.some(p => p.name === name);
+
+function renderPresetSelect() {
+  const opt = p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`;
+  $('presetSel').innerHTML =
+    `<optgroup label="Wbudowane">${BUILTIN_PRESETS.map(opt).join('')}</optgroup>` +
+    (userPresets.length ? `<optgroup label="Moje">${userPresets.map(opt).join('')}</optgroup>` : '');
+  $('presetSel').value = allPresets().some(p => p.name === state.preset) ? state.preset : '';
+  $('btnPresetDel').disabled = isBuiltin(state.preset) || !userPresets.some(p => p.name === state.preset);
+}
+
+function applyPreset(name) {
+  const p = allPresets().find(x => x.name === name);
+  if (!p) return;
+  state.preset = name;
+  state.sheet = { ...DEFAULTS.sheet, ...p.sheet };
+  state.text = { ...DEFAULTS.text, ...p.text };
+  syncInputs(); renderPresetSelect(); saveState(); render();
+}
+
+$('presetSel').addEventListener('change', e => applyPreset(e.target.value));
+
+$('btnPresetSave').addEventListener('click', () => {
+  const suggested = isBuiltin(state.preset) ? '' : state.preset;
+  const name = (prompt('Nazwa presetu (np. producent i numer arkusza):', suggested) || '').trim();
+  if (!name) return;
+  if (isBuiltin(name)) { alert('Tej nazwy używa preset wbudowany — wybierz inną.'); return; }
+  userPresets = userPresets.filter(p => p.name !== name);
+  userPresets.push({ name, sheet: { ...state.sheet }, text: { ...state.text } });
+  store.set(KEYS.presets, userPresets);
+  state.preset = name;
+  renderPresetSelect(); saveState();
+});
+
+$('btnPresetDel').addEventListener('click', () => {
+  if (!confirm(`Usunąć preset „${state.preset}”?`)) return;
+  userPresets = userPresets.filter(p => p.name !== state.preset);
+  store.set(KEYS.presets, userPresets);
+  applyPreset(BUILTIN_PRESETS[0].name);
+});
+
+$('btnPresetExport').addEventListener('click', () => {
+  if (!userPresets.length) { alert('Brak własnych presetów do eksportu.'); return; }
+  const blob = new Blob([JSON.stringify(userPresets, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'presety-etykiet.json' });
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$('btnPresetImport').addEventListener('click', () => $('filePreset').click());
+$('filePreset').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const list = JSON.parse(await file.text());
+    const valid = (Array.isArray(list) ? list : [list]).filter(p => p && typeof p.name === 'string' && p.sheet && !isBuiltin(p.name));
+    if (!valid.length) throw new Error('brak presetów');
+    for (const p of valid) {
+      userPresets = userPresets.filter(x => x.name !== p.name);
+      userPresets.push({ name: p.name, sheet: { ...DEFAULTS.sheet, ...p.sheet }, text: { ...DEFAULTS.text, ...p.text } });
+    }
+    store.set(KEYS.presets, userPresets);
+    renderPresetSelect();
+    alert(`Zaimportowano presetów: ${valid.length}.`);
+  } catch {
+    alert('Nie udało się odczytać pliku presetów.');
+  }
+});
+
+/* ---------- druk ---------- */
+$('btnPrint').addEventListener('click', () => { clearTimeout(renderTimer); render(); window.print(); });
+
+/* =====================================================================
+   Start
+   ===================================================================== */
+syncInputs();
+renderPresetSelect();
+renderBlocks();
+setMode(state.mode);
+</script>
+</body>
+</html>

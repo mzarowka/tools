@@ -6,4 +6,4 @@ bez instalacji i bez wysyłania danych.
 
 | Narzędzie | Katalog | Status |
 |---|---|---|
-| Generator etykiet A4 (CSV → druk) | [`labels/`](labels/) | w przygotowaniu |
+| Generator etykiet A4 (CSV → druk) | [`labels/`](labels/) | wersja 1 (bez QR) |
