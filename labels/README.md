@@ -26,6 +26,9 @@ a dane nie opuszczają komputera.
 
 Opcja **Pomiń pierwsze N etykiet** pozwala dokończyć napoczęty arkusz.
 
+Preset **5×13 · 38×21,2 mm · bez odstępów** odpowiada arkuszowi używanemu w pracowni
+(etykiety stykają się, marginesy boczne 10 mm); sprawdzony wydrukiem 2026-11-07.
+
 ## Plany
 
 - QR / kod kreskowy z treści etykiety.
