@@ -203,30 +203,47 @@
    ===================================================================== */
 const BRAND_BLUE = '#0063AF';
 
+/* Wspólna rama A5 (wzór z PowerPointa) dla gabinetu i dużej tabliczki pomieszczenia:
+   poprawka tutaj obejmuje oba warianty. */
+const A5_FRAME = {
+  w: 148, h: 210,
+  lineHeight: 1.2,                 // interlinia „pojedyncza” PowerPointa dla Aptosa
+  minScale: 0.7,                   // poniżej: ostrzeżenie, że tekst jest za mały
+  logo:   { x: 9, y: 11.6, w: 33.2 },
+  room:   { top: 8.6, right: 11.5, size: 44, bold: true, color: BRAND_BLUE },
+  header: {
+    top: 46.7, bottom: 104, side: 11.5,
+    faculty: { size: 14, upper: true, gapAfter: 3.2 },
+    unit:    { size: 24, upper: true, bold: true, gapAfter: 6.8 },
+    lab:     { size: 14, upper: true },
+  },
+  middle: { top: 106.3, bottom: 194.4 },        // strefa osób albo nazwy pomieszczenia
+  stripes: { h: 14.35, color: BRAND_BLUE },
+};
+
 const FORMATS = {
   a5: {
-    label: 'A5 pionowo · 148 × 210 mm', short: 'A5',
-    aliases: ['a5', 'duza', 'duzy'],             // wartości kolumny „rozmiar” w CSV
-    w: 148, h: 210,
-    lineHeight: 1.2,                 // interlinia „pojedyncza” PowerPointa dla Aptosa
-    minScale: 0.7,                   // poniżej: ostrzeżenie, że tekst jest za mały
-    logo:   { x: 9, y: 11.6, w: 33.2 },
-    room:   { top: 8.6, right: 11.5, size: 44, bold: true, color: BRAND_BLUE },
-    header: {
-      top: 46.7, bottom: 104, side: 11.5,
-      fields: ['faculty', 'unit', 'lab'],
-      faculty: { size: 14, upper: true, gapAfter: 3.2 },
-      unit:    { size: 24, upper: true, bold: true, gapAfter: 6.8 },
-      lab:     { size: 14, upper: true },
-    },
+    label: 'A5 gabinet · 148 × 210 mm', short: 'A5',
+    aliases: ['a5', 'duza', 'duzy', 'gabinet'],  // wartości kolumny „rozmiar” w CSV
+    ...A5_FRAME,
+    header: { ...A5_FRAME.header, fields: ['faculty', 'unit', 'lab'] },
     people: {
-      top: 106.3, bottom: 194.4, side: 6,
+      ...A5_FRAME.middle, side: 6,
       name:  { size: 20, bold: true },           // stopień imię nazwisko
       title: { size: 16 },                       // np. „prof. Uniwersytetu Gdańskiego” — jak wpisano
       roles: { size: 16, upper: true },          // stanowiska — wielkimi literami
       gapLines: 2,                               // odstęp między osobami = 2 puste wiersze nazwiska
     },
-    stripes: { h: 14.35, color: BRAND_BLUE },
+  },
+
+  /* Duża tabliczka pomieszczenia (laboratoria w pełnym rozmiarze): rama A5,
+     nagłówek bez pracowni, zamiast osób nazwa pomieszczenia — jak na małej. */
+  a5pom: {
+    label: 'A5 pomieszczenie · 148 × 210 mm', short: 'A5 pom.',
+    aliases: ['a5pomieszczenie', 'a5pom', 'a5lab'],
+    ...A5_FRAME,
+    header: { ...A5_FRAME.header, fields: ['faculty', 'unit'] },
+    name: { ...A5_FRAME.middle, side: A5_FRAME.header.side, size: 36, upper: true, bold: true },
   },
 
   /* Mała tabliczka na laboratoria i składy: bez osób i bez pracowni,
