@@ -1,48 +1,52 @@
-sala;wydział;jednostka;pracownia;stopień;imię;nazwisko;dopisek;stanowiska
-B304;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+sala;rozmiar;pomieszczenie;wydział;jednostka;pracownia;stopień;imię;nazwisko;dopisek;stanowiska
+B304;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Badań Paleośrodowiskowych;prof. dr hab.;Wojciech;Tylmann;;"Kierownik katedry
 Kierownik pracowni"
-B305;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B305;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Badań Paleośrodowiskowych;dr;Dominika;Łuców;;
-B306;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B306;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Badań Paleośrodowiskowych;dr;Alicja;Bonk;;
-B306;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B306;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Badań Paleośrodowiskowych;mgr;Aleksandra;Orłowska;;
-B308;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B308;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Badań Paleośrodowiskowych;mgr;Anugrah;Chettintavida;;
-B308;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B308;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Badań Paleośrodowiskowych;dr;Sambor;Czerwiński;;
-B308;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B308;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Badań Paleośrodowiskowych;dr;Maurycy;Żarczyński;;
-B309;Wydział Oceanografii i Geografii;"Centrum Monitoringu
+B309;a5;;Wydział Oceanografii i Geografii;"Centrum Monitoringu
 I Ochrony Wód";;prof. dr hab. inż.;Julita;Dunalska;;Kierownik centrum
-B310;Wydział Oceanografii i Geografii;"Centrum Monitoringu
+B310;a5;;Wydział Oceanografii i Geografii;"Centrum Monitoringu
 I Ochrony Wód";;dr;Włodzimierz;Golus;;
-B310;Wydział Oceanografii i Geografii;"Centrum Monitoringu
+B310;a5;;Wydział Oceanografii i Geografii;"Centrum Monitoringu
 I Ochrony Wód";;mgr;Wioleta;Kardasińska;;
-B310;Wydział Oceanografii i Geografii;"Centrum Monitoringu
+B310;a5;;Wydział Oceanografii i Geografii;"Centrum Monitoringu
 I Ochrony Wód";;mgr;Julia;Tarasek;;
-B311;Wydział Oceanografii i Geografii;"Katedra Oceanografii Fizycznej
+B311;a5;;Wydział Oceanografii i Geografii;"Katedra Oceanografii Fizycznej
 I Badań Klimatu";Pracownia Badań Klimatu;dr;Mirosława;Malinowska;prof. Uniwersytetu Gdańskiego;
-B312;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B312;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Rekonstrukcji Geomorfologicznych;mgr;Sanjaya;Gurung;;
-B312;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B312;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Rekonstrukcji Geomorfologicznych;dr;Patryk;Sitkiewicz;;
-B312;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B312;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Rekonstrukcji Geomorfologicznych;dr;Karol;Tylmann;;
-B313;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B313;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";;mgr;Katarzyna;Kozłowska;;
-B313;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B313;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";;mgr;Amelia;Sochacka;;
-B314;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B314;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Rekonstrukcji Geomorfologicznych;dr hab.;Piotr Paweł;Woźniak;prof. Uniwersytetu Gdańskiego;Kierownik pracowni
-B315;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B315;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Rekonstrukcji Geomorfologicznych;mgr;Miłosz;Majerowski;;
-B315;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B315;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Rekonstrukcji Geomorfologicznych;dr;Damian;Moskalewicz;;
-B315;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B315;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Rekonstrukcji Geomorfologicznych;mgr;Olga;Reutt;;
-B316;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B316;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Rekonstrukcji Geomorfologicznych;mgr;Bidisha;Gangopadhyay;;
-B316;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+B316;a5;;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
 I Geologii Czwartorzędu";Pracownia Rekonstrukcji Geomorfologicznych;mgr;Anjaly Suma;Pacheerikattil;;
+B301;mała;Laboratorium sedymentologiczne;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+I Geologii Czwartorzędu";;;;;;
+B317;mała;Magazyn sprzętu terenowego;Wydział Oceanografii i Geografii;"Katedra Geomorfologii
+I Geologii Czwartorzędu";;;;;;
