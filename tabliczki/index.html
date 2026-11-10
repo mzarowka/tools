@@ -76,21 +76,22 @@
   .info .warn { color: var(--err); font-weight: 600; }
   .info select { width: auto; }
 
-  .paper { position: relative; overflow: hidden; margin: 0 auto 20px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); cursor: pointer; }
-  .paper.current { box-shadow: 0 0 0 2px var(--accent), 0 1px 4px rgba(0,0,0,.18); }
+  .paper { position: relative; overflow: hidden; margin: 0 auto 20px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
   .paper.skip { opacity: .35; }
   .marks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
   .sign {
-    position: absolute; overflow: hidden; color: #000; font-family: var(--sign-font);
+    position: absolute; overflow: hidden; color: #000; font-family: var(--sign-font); cursor: pointer;
     outline: 0.2mm dashed #b8c4cc;                      /* krawędź cięcia — tylko na ekranie */
   }
+  .sign.current { box-shadow: 0 0 0 0.8mm var(--accent); }
   .sign.outlined { outline: 0.2mm solid #000; }        /* obrys jak we wzorze — także na wydruku */
   .sign > * { position: absolute; }
   .sign .l { line-height: var(--lh); }
-  .sign .header .l { white-space: pre-line; text-wrap: balance; overflow-wrap: anywhere; }
-  .sign .people-box { display: flex; align-items: center; }
-  .sign .header-in, .sign .people { width: 100%; text-align: center; }
+  .sign .zone { display: flex; }
+  .sign .zone.center { align-items: center; }
+  .sign .zone-in { width: 100%; text-align: center; }
+  .sign .header .l, .sign .name .l { white-space: pre-line; text-wrap: balance; overflow-wrap: anywhere; }
   .sign .people .l { white-space: nowrap; }
   .sign .room-no { white-space: nowrap; text-align: right; }
   .sign .stripes { display: block; }
@@ -103,6 +104,7 @@
     .paper { margin: 0; box-shadow: none !important; break-after: page; }
     .paper.last { break-after: auto; }
     .paper.skip { display: none; }
+    .sign { box-shadow: none !important; cursor: auto; }
     .sign { outline: none; }
     .sign.outlined { outline: 0.2mm solid #000; }
   }
@@ -150,7 +152,7 @@
     <div class="grid2">
       <label class="field"><span>Papier</span>
         <select data-print="paper">
-          <option value="a4">A4, tabliczka na środku</option>
+          <option value="a4">A4 (ile się zmieści, na środku)</option>
           <option value="trim">dokładnie rozmiar tabliczki</option>
         </select>
       </label>
@@ -195,37 +197,79 @@
    Formaty tabliczek — cała geometria w jednym miejscu (mm i pt).
    Wartości dla A5 odczytane z wzoru w PowerPoincie (pole tekstowe +
    wewnętrzne marginesy PowerPointa: 1,27 mm góra/dół, 2,54 mm boki).
-   Kolejny rozmiar = kolejny wpis w FORMATS.
+   Kolejny rozmiar = kolejny wpis w FORMATS. Format opisuje, które elementy
+   ma tabliczka (logo, room, header, people, name, stripes); brak klucza =
+   brak elementu, a edytor pokazuje tylko pola używane przez format.
    ===================================================================== */
 const BRAND_BLUE = '#0063AF';
 
+/* Wspólna rama A5 (wzór z PowerPointa) dla gabinetu i dużej tabliczki pomieszczenia:
+   poprawka tutaj obejmuje oba warianty. */
+const A5_FRAME = {
+  w: 148, h: 210,
+  lineHeight: 1.2,                 // interlinia „pojedyncza” PowerPointa dla Aptosa
+  minScale: 0.7,                   // poniżej: ostrzeżenie, że tekst jest za mały
+  logo:   { x: 9, y: 11.6, w: 33.2 },
+  room:   { top: 8.6, right: 11.5, size: 44, bold: true, color: BRAND_BLUE },
+  header: {
+    top: 46.7, bottom: 104, side: 11.5,
+    faculty: { size: 14, upper: true, gapAfter: 3.2 },
+    unit:    { size: 24, upper: true, bold: true, gapAfter: 6.8 },
+    lab:     { size: 14, upper: true },
+  },
+  middle: { top: 106.3, bottom: 194.4 },        // strefa osób albo nazwy pomieszczenia
+  stripes: { h: 14.35, color: BRAND_BLUE },
+};
+
 const FORMATS = {
   a5: {
-    label: 'A5 pionowo · 148 × 210 mm',
-    w: 148, h: 210,
-    lineHeight: 1.2,                 // interlinia „pojedyncza” PowerPointa dla Aptosa
-    minScale: 0.7,                   // poniżej: ostrzeżenie, że tekst jest za mały
-    logo:   { x: 9, y: 11.6, w: 33.2 },
-    room:   { top: 8.6, right: 11.5, size: 44, bold: true, color: BRAND_BLUE },
-    header: {
-      top: 46.7, bottom: 104, side: 11.5,
-      faculty: { size: 14, upper: true, gapAfter: 3.2 },
-      unit:    { size: 24, upper: true, bold: true, gapAfter: 6.8 },
-      lab:     { size: 14, upper: true },
-    },
+    label: 'A5 gabinet · 148 × 210 mm', short: 'A5',
+    aliases: ['a5', 'duza', 'duzy', 'gabinet'],  // wartości kolumny „rozmiar” w CSV
+    ...A5_FRAME,
+    header: { ...A5_FRAME.header, fields: ['faculty', 'unit', 'lab'] },
     people: {
-      top: 106.3, bottom: 194.4, side: 6,
+      ...A5_FRAME.middle, side: 6,
       name:  { size: 20, bold: true },           // stopień imię nazwisko
       title: { size: 16 },                       // np. „prof. Uniwersytetu Gdańskiego” — jak wpisano
       roles: { size: 16, upper: true },          // stanowiska — wielkimi literami
       gapLines: 2,                               // odstęp między osobami = 2 puste wiersze nazwiska
     },
-    stripes: { h: 14.35, color: BRAND_BLUE },
+  },
+
+  /* Duża tabliczka pomieszczenia (laboratoria w pełnym rozmiarze): rama A5,
+     nagłówek bez pracowni, zamiast osób nazwa pomieszczenia — jak na małej. */
+  a5pom: {
+    label: 'A5 pomieszczenie · 148 × 210 mm', short: 'A5 pom.',
+    aliases: ['a5pomieszczenie', 'a5pom', 'a5lab'],
+    ...A5_FRAME,
+    header: { ...A5_FRAME.header, fields: ['faculty', 'unit'] },
+    name: { ...A5_FRAME.middle, side: A5_FRAME.header.side, size: 36, upper: true, bold: true },
+  },
+
+  /* Mała tabliczka na laboratoria i składy: bez osób i bez pracowni,
+     najważniejsza jest nazwa pomieszczenia. Wymiar zmierzony na starej kartce. */
+  mala: {
+    label: 'Mała poziomo · 146 × 100 mm', short: 'mała',
+    aliases: ['mala', 'maly', 'small'],
+    w: 146, h: 100,
+    lineHeight: 1.2,
+    minScale: 0.7,
+    logo:   { x: 8, y: 7, w: 28 },
+    room:   { top: 6.3, right: 9, size: 30, bold: true, color: BRAND_BLUE },   // środek w osi logo
+    header: {
+      top: 23, bottom: 42, side: 8,
+      fields: ['faculty', 'unit'],
+      faculty: { size: 10, upper: true, gapAfter: 1.5 },
+      unit:    { size: 13, upper: true, bold: true },
+    },
+    name:   { top: 44, bottom: 88, side: 8, size: 30, upper: true, bold: true },  // nazwa pomieszczenia
+    stripes: { h: 10, color: BRAND_BLUE },
   },
 };
 const DEFAULT_FORMAT = 'a5';
 
 const PAPERS = { a4: { w: 210, h: 297 } };       // 'trim' = papier w rozmiarze tabliczki
+const IMPOSE = { margin: 10, gap: 10 };          // na A4: min. odstęp tabliczki od brzegu kartki i między tabliczkami (miejsce na znaczniki)
 const MARKS = { gap: 2, edge: 5, min: 3, stroke: 0.2 };   // znaczniki: odstęp od krawędzi cięcia, zapas od brzegu kartki
 
 /* Paski na dole: wzór z PNG w pptx (454 × 44 px), przerysowany wektorowo.
@@ -247,6 +291,8 @@ const SUGGEST = {
 /* Kolumny CSV: klucz → nagłówek przy eksporcie + akceptowane nazwy przy imporcie (bez polskich znaków). */
 const CSV_COLS = [
   ['room',    'sala',       ['sala', 'pokoj', 'numer']],
+  ['format',  'rozmiar',    ['rozmiar', 'format']],
+  ['name',    'pomieszczenie', ['pomieszczenie', 'nazwa', 'nazwapomieszczenia']],
   ['faculty', 'wydział',    ['wydzial']],
   ['unit',    'jednostka',  ['jednostka', 'katedra', 'centrum']],
   ['lab',     'pracownia',  ['pracownia', 'zaklad']],
@@ -256,7 +302,7 @@ const CSV_COLS = [
   ['title',   'dopisek',    ['dopisek', 'tytulprofesorski']],
   ['roles',   'stanowiska', ['stanowiska', 'stanowisko', 'funkcja', 'funkcje']],
 ];
-const HEADER_KEYS = ['room', 'faculty', 'unit', 'lab'];
+const HEADER_KEYS = ['room', 'format', 'name', 'faculty', 'unit', 'lab'];
 const PERSON_KEYS = ['degree', 'first', 'last', 'title', 'roles'];
 
 const KEYS = { state: 'tabliczki.state.v1' };
@@ -294,9 +340,10 @@ function el(tag, cls, text) {
 const emptyPerson = () => ({ degree: '', first: '', last: '', title: '', roles: '' });
 const emptySign = (from = {}) => ({
   id: newId(), format: from.format ?? DEFAULT_FORMAT, print: true,
-  room: '', faculty: from.faculty ?? '', unit: from.unit ?? '', lab: from.lab ?? '',
-  people: [emptyPerson()],
+  room: '', name: '', faculty: from.faculty ?? '', unit: from.unit ?? '', lab: from.lab ?? '',
+  people: FORMATS[from.format ?? DEFAULT_FORMAT]?.people ? [emptyPerson()] : [],
 });
+const formatKey = v => Object.keys(FORMATS).find(k => k === v || FORMATS[k].aliases.includes(plain(v ?? ''))) ?? DEFAULT_FORMAT;
 
 const personName = p => [p.degree, p.first, p.last].map(clean).filter(Boolean).join(' ');
 const sortedPeople = sign => sign.people
@@ -314,7 +361,7 @@ const state = {
   print: { paper: 'a4', marks: true, outline: false, ...saved.print },
   zoom: saved.zoom ?? 0.75,
 };
-const fitResults = new Map();       // id → { header, people } (skala 0–1)
+const fitResults = new Map();       // id → { strefa: skala 0–1 } (header, people, name)
 
 const save = () => store.set(KEYS.state, state);
 const currentSign = () => state.signs.find(s => s.id === state.current) ?? null;
@@ -349,49 +396,68 @@ function stripesSvg(f) {
   return place(wrap, { x: 0, y: f.h - f.stripes.h, w: f.w, h: f.stripes.h });
 }
 
+/* Strefa tekstu o stałym rozmiarze; zawartość dopasowywana przez fitBox. */
+function zone(f, Z, cls, children, center = true) {
+  const box = place(el('div', `zone ${cls}${center ? ' center' : ''}`), { x: Z.side, y: Z.top, w: f.w - 2 * Z.side, h: Z.bottom - Z.top });
+  const inner = el('div', 'zone-in');
+  inner.append(...children);
+  box.append(inner);
+  return [box, inner];
+}
+
 function buildSign(sign) {
   const f = fmtOf(sign);
   const root = place(el('div', 'sign'), { w: f.w, h: f.h });
+  root.dataset.id = sign.id;
   root.style.setProperty('--lh', f.lineHeight);
-  if (state.print.outline) root.classList.add('outlined');
+  root.classList.toggle('outlined', state.print.outline);
+  root.classList.toggle('current', sign.id === state.current);
+  const fits = [];
+  const addZone = (key, box, inner) => { root.append(box); fits.push([key, box, inner]); };
 
-  const logo = el('img', 'logo'); logo.src = LOGO_UG; logo.alt = '';
-  root.append(place(logo, { x: f.logo.x, y: f.logo.y, w: f.logo.w }));
-
-  if (clean(sign.room)) {
-    root.append(place(textLine(clean(sign.room), f.room), { y: f.room.top, right: f.room.right }));
-    root.lastChild.classList.add('room-no');
+  if (f.logo) {
+    const logo = el('img', 'logo'); logo.src = LOGO_UG; logo.alt = '';
+    root.append(place(logo, { x: f.logo.x, y: f.logo.y, w: f.logo.w }));
   }
 
-  // Nagłówek: wydział / jednostka / pracownia
-  const H = f.header;
-  const header = place(el('div', 'header'), { x: H.side, y: H.top, w: f.w - 2 * H.side, h: H.bottom - H.top });
-  const hIn = el('div', 'header-in');
-  const parts = ['faculty', 'unit', 'lab'].filter(k => clean(sign[k]));
-  parts.forEach((k, i) => {
-    const d = textLine(clean(sign[k]), H[k]);
-    if (i < parts.length - 1) d.style.marginBottom = `calc(var(--k, 1) * ${H[k].gapAfter}mm)`;
-    hIn.append(d);
-  });
-  header.append(hIn); root.append(header);
+  if (f.room && clean(sign.room)) {
+    const r = place(textLine(clean(sign.room), f.room), { y: f.room.top, right: f.room.right });
+    r.classList.add('room-no');
+    root.append(r);
+  }
 
-  // Osoby — alfabetycznie po nazwisku, wyśrodkowane w pionie w swojej strefie
-  const P = f.people;
-  const box = place(el('div', 'people-box'), { x: P.side, y: P.top, w: f.w - 2 * P.side, h: P.bottom - P.top });
-  const list = el('div', 'people');
-  const gap = P.gapLines * P.name.size * f.lineHeight;
-  sortedPeople(sign).forEach((p, i) => {
-    const block = el('div', 'who');
-    if (i > 0) block.style.marginTop = `calc(var(--k, 1) * ${gap}pt)`;
-    if (personName(p)) block.append(textLine(personName(p), P.name));
-    lines(p.title).forEach(t => block.append(textLine(t, P.title)));
-    lines(p.roles).forEach(t => block.append(textLine(t, P.roles)));
-    list.append(block);
-  });
-  box.append(list); root.append(box);
+  // Nagłówek: pola wg formatu (wydział / jednostka / pracownia), od góry strefy
+  if (f.header) {
+    const H = f.header;
+    const parts = H.fields.filter(k => clean(sign[k]));
+    const rows = parts.map((k, i) => {
+      const d = textLine(clean(sign[k]), H[k]);
+      if (i < parts.length - 1) d.style.marginBottom = `calc(var(--k, 1) * ${H[k].gapAfter ?? 0}mm)`;
+      return d;
+    });
+    addZone('header', ...zone(f, H, 'header', rows, false));
+  }
 
-  root.append(stripesSvg(f));
-  return { root, fits: [['header', header, hIn], ['people', box, list]] };
+  // Osoby — alfabetycznie po nazwisku, wyśrodkowane w pionie
+  if (f.people) {
+    const P = f.people;
+    const gap = P.gapLines * P.name.size * f.lineHeight;
+    const blocks = sortedPeople(sign).map((p, i) => {
+      const block = el('div', 'who');
+      if (i > 0) block.style.marginTop = `calc(var(--k, 1) * ${gap}pt)`;
+      if (personName(p)) block.append(textLine(personName(p), P.name));
+      lines(p.title).forEach(t => block.append(textLine(t, P.title)));
+      lines(p.roles).forEach(t => block.append(textLine(t, P.roles)));
+      return block;
+    });
+    addZone('people', ...zone(f, P, 'people', blocks));
+  }
+
+  // Nazwa pomieszczenia (mała tabliczka)
+  if (f.name && clean(sign.name)) addZone('name', ...zone(f, f.name, 'name', [textLine(clean(sign.name), f.name)]));
+
+  if (f.stripes) root.append(stripesSvg(f));
+  return { root, fits };
 }
 
 /* Zmniejsza blok równomiernie (zmienna --k), aż zmieści się w swojej strefie. */
@@ -407,26 +473,64 @@ function fitBox(box, inner) {
   return lo;
 }
 
-function paperFor(f) {
-  return state.print.paper === 'a4' ? PAPERS.a4 : { w: f.w, h: f.h };
+/* Rozkład na kartce: ile tabliczek danego formatu mieści się na A4 (siatka,
+   wyśrodkowana), albo jedna na stronę w trybie „dokładnie rozmiar tabliczki”. */
+function layoutFor(f) {
+  if (state.print.paper !== 'a4') return { paper: { w: f.w, h: f.h }, slots: [{ x: 0, y: 0, w: f.w, h: f.h }] };
+  const paper = PAPERS.a4, { margin: m, gap: g } = IMPOSE;
+  const count = (P, S) => Math.max(1, Math.floor((P - 2 * m + g) / (S + g)));
+  const cols = count(paper.w, f.w), rows = count(paper.h, f.h);
+  const x0 = (paper.w - (cols * f.w + (cols - 1) * g)) / 2;
+  const y0 = (paper.h - (rows * f.h + (rows - 1) * g)) / 2;
+  const slots = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) slots.push({ x: x0 + c * (f.w + g), y: y0 + r * (f.h + g), w: f.w, h: f.h });
+  return { paper, slots };
 }
 
-function cropMarks(paper, f, ox, oy) {
-  const segs = [];
-  const add = (x1, y1, x2, y2) => { if (Math.hypot(x2 - x1, y2 - y1) >= MARKS.min) segs.push([x1, y1, x2, y2]); };
-  for (const [x, dx] of [[ox, -1], [ox + f.w, 1]]) {
-    for (const [y, dy] of [[oy, -1], [oy + f.h, 1]]) {
-      add(x + dx * MARKS.gap, y, dx < 0 ? MARKS.edge : paper.w - MARKS.edge, y);   // poziomy, na przedłużeniu krawędzi
-      add(x, y + dy * MARKS.gap, x, dy < 0 ? MARKS.edge : paper.h - MARKS.edge);   // pionowy
+/* Znaczniki cięcia na przedłużeniu krawędzi; każdy biegnie do brzegu kartki
+   albo do sąsiedniej tabliczki (z odstępem MARKS.gap), więc nie wchodzi na nią. */
+function cropMarks(paper, rects) {
+  const segs = new Map();
+  const within = (v, a, b) => v > a - 0.01 && v < b + 0.01;
+  const ray = (x, y, dx, dy) => {
+    const pos = dx ? x : y, span = dx ? y : x;
+    let end = (dx || dy) < 0 ? MARKS.edge : (dx ? paper.w : paper.h) - MARKS.edge;
+    for (const r of rects) {
+      const [lo, hi] = dx ? [r.y, r.y + r.h] : [r.x, r.x + r.w];
+      if (!within(span, lo, hi)) continue;
+      const near = (dx || dy) > 0 ? (dx ? r.x : r.y) : (dx ? r.x + r.w : r.y + r.h);
+      if ((near - pos) * (dx || dy) <= 0) continue;                       // własna tabliczka albo za plecami
+      end = (dx || dy) > 0 ? Math.min(end, near - MARKS.gap) : Math.max(end, near + MARKS.gap);
+    }
+    const start = pos + (dx || dy) * MARKS.gap;
+    if ((end - start) * (dx || dy) < MARKS.min) return;
+    const s = dx ? [start, y, end, y] : [x, start, x, end];
+    segs.set(s.map(v => v.toFixed(2)).sort().join(), s);                  // sąsiednie tabliczki dają ten sam odcinek
+  };
+  for (const r of rects) {
+    for (const [x, dx] of [[r.x, -1], [r.x + r.w, 1]]) {
+      for (const [y, dy] of [[r.y, -1], [r.y + r.h, 1]]) { ray(x, y, dx, 0); ray(x, y, 0, dy); }
     }
   }
-  if (!segs.length) return null;
+  if (!segs.size) return null;
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'marks');
   svg.setAttribute('viewBox', `0 0 ${paper.w} ${paper.h}`);
-  svg.innerHTML = segs.map(([a, b, c, d]) =>
+  svg.innerHTML = [...segs.values()].map(([a, b, c, d]) =>
     `<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="#000" stroke-width="${MARKS.stroke}"/>`).join('');
   return svg;
+}
+
+const chunk = (arr, n) => arr.length ? [arr.slice(0, n), ...chunk(arr.slice(n), n)] : [];
+
+/* Strony do druku: każdy format osobno, w kolejności z listy; potem
+   (tylko na ekranie, przygaszone) tabliczki niezaznaczone do druku. */
+function planPages() {
+  const keyOf = s => formatKey(s.format);
+  const printed = Object.keys(FORMATS).flatMap(fk =>
+    chunk(state.signs.filter(s => s.print && keyOf(s) === fk), layoutFor(FORMATS[fk]).slots.length).map(signs => ({ fk, signs, skip: false })));
+  const skipped = state.signs.filter(s => !s.print).map(s => ({ fk: keyOf(s), signs: [s], skip: true }));
+  return [...printed, ...skipped];
 }
 
 function renderPreview() {
@@ -435,47 +539,44 @@ function renderPreview() {
   host.style.zoom = state.zoom;
   fitResults.clear();
 
+  // Każdy format ma swoją nazwaną stronę (@page), więc różne rozmiary mogą iść w jednym druku.
+  $('#pageStyle').textContent = '@page { size: A4; margin: 0; }\n' + Object.entries(FORMATS).map(([fk, f]) => {
+    const { paper } = layoutFor(f);
+    return `@page fmt-${fk} { size: ${paper.w}mm ${paper.h}mm; margin: 0; }`;
+  }).join('\n');
+
   if (!state.signs.length) {
     host.append(el('div', 'empty', 'Brak tabliczek. Dodaj nową („+ nowa”) albo wczytaj plik CSV, np. przyklad.csv z katalogu narzędzia.'));
-    renderInfo(); return;
+    renderInfo(); renderList(); return;
   }
 
-  const printed = state.signs.filter(s => s.print);
-  let pageSize = null;
-  state.signs.forEach(sign => {
-    const f = fmtOf(sign);
-    const paper = paperFor(f);
-    pageSize ??= sign.print ? paper : null;
-    const ox = (paper.w - f.w) / 2, oy = (paper.h - f.h) / 2;
-
-    const sheet = place(el('div', 'paper'), { w: paper.w, h: paper.h });
-    sheet.classList.toggle('current', sign.id === state.current);
-    sheet.classList.toggle('skip', !sign.print);
-    sheet.classList.toggle('last', sign === printed.at(-1));
-    sheet.addEventListener('click', () => selectSign(sign.id));
-
-    const { root, fits } = buildSign(sign);
-    place(root, { x: ox, y: oy });
-    sheet.append(root);
-    if (state.print.marks) { const m = cropMarks(paper, f, ox, oy); if (m) sheet.append(m); }
+  const pages = planPages();
+  const lastPrinted = pages.filter(p => !p.skip).at(-1);
+  pages.forEach(page => {
+    const { paper, slots } = layoutFor(FORMATS[page.fk]);
+    const sheet = place(el('div', 'paper'), { w: paper.w, h: paper.h - 0.5 });   // zapas na zaokrąglenia → bez pustych stron
+    sheet.style.setProperty('page', `fmt-${page.fk}`);
+    sheet.classList.toggle('skip', page.skip);
+    sheet.classList.toggle('last', page === lastPrinted);
     host.append(sheet);
 
-    const res = {};
-    fits.forEach(([key, box, inner]) => { res[key] = fitBox(box, inner); });
-    fitResults.set(sign.id, res);
+    const rects = slots.slice(0, page.signs.length);
+    page.signs.forEach((sign, i) => {
+      const { root, fits } = buildSign(sign);
+      place(root, { x: rects[i].x, y: rects[i].y });
+      root.addEventListener('click', () => selectSign(sign.id));
+      sheet.append(root);
+      fitResults.set(sign.id, Object.fromEntries(fits.map(([key, box, inner]) => [key, fitBox(box, inner)])));
+    });
+    if (state.print.marks && state.print.paper === 'a4') { const m = cropMarks(paper, rects); if (m) sheet.append(m); }
   });
-
-  // Jedna wielkość strony na całe zadanie druku (pierwsza drukowana tabliczka).
-  const ps = pageSize ?? PAPERS.a4;
-  $('#pageStyle').textContent = `@page { size: ${ps.w}mm ${ps.h}mm; margin: 0; }`;
-  document.querySelectorAll('.paper').forEach(p => { p.style.height = mm(ps.h - 0.5); });   // zapas na zaokrąglenia → bez pustych stron
   renderInfo();
   renderList();
 }
 
 function shrinkOf(id) {
-  const r = fitResults.get(id);
-  return r ? Math.min(r.header, r.people) : 1;
+  const r = Object.values(fitResults.get(id) ?? {});
+  return r.length ? Math.min(...r) : 1;
 }
 
 function renderInfo() {
@@ -503,10 +604,11 @@ function renderList() {
     const cb = el('input'); cb.type = 'checkbox'; cb.checked = sign.print; cb.title = 'Drukuj';
     cb.addEventListener('click', e => e.stopPropagation());
     cb.addEventListener('change', () => { sign.print = cb.checked; scheduleRender(); });
-    const k = shrinkOf(sign.id);
-    li.append(cb, el('span', 'room', clean(sign.room) || '—'),
-      el('span', 'desc', `${lines(sign.unit).join(' ')} · ${sortedPeople(sign).length} os.`));
-    if (k < 0.995) li.append(el('span', k < fmtOf(sign).minScale ? 'badge err' : 'badge', `${Math.round(k * 100)}%`));
+    const k = shrinkOf(sign.id), f = fmtOf(sign);
+    const desc = f.people ? `${lines(sign.unit).join(' ')} · ${sortedPeople(sign).length} os.` : (lines(sign.name).join(' ') || 'bez nazwy');
+    li.append(cb, el('span', 'room', clean(sign.room) || '—'), el('span', 'desc', desc));
+    if (Object.keys(FORMATS).length > 1) li.append(el('span', 'badge', f.short));
+    if (k < 0.995) li.append(el('span', k < f.minScale ? 'badge err' : 'badge', `${Math.round(k * 100)}%`));
     li.addEventListener('click', () => selectSign(sign.id));
     ul.append(li);
   });
@@ -516,9 +618,9 @@ function selectSign(id) {
   if (state.current === id) return;
   state.current = id;
   renderEditor();
-  document.querySelectorAll('.paper').forEach((p, i) => p.classList.toggle('current', state.signs[i]?.id === id));
   renderList();
-  document.querySelectorAll('.paper')[state.signs.findIndex(s => s.id === id)]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  document.querySelectorAll('.sign').forEach(s => s.classList.toggle('current', s.dataset.id === id));
+  document.querySelector(`.sign[data-id="${id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   save();
 }
 
@@ -554,14 +656,16 @@ function renderEditor() {
   ed.append(el('h2', null, sign ? `Edycja tabliczki ${clean(sign.room)}` : 'Edycja tabliczki'));
   if (!sign) { ed.append(el('p', 'hint', 'Wybierz tabliczkę z listy albo dodaj nową.')); return; }
 
+  const f = fmtOf(sign);
+  const has = key => f.header?.fields.includes(key);
   const set = key => v => { sign[key] = v; scheduleRender(); if (key !== 'room') refreshDatalists(); };
   const g = el('div', 'grid2');
 
   if (Object.keys(FORMATS).length > 1) {
     const w = el('label', 'field span2'); w.append(el('span', null, 'Rozmiar'));
     const s = el('select');
-    Object.entries(FORMATS).forEach(([k, f]) => s.append(new Option(f.label, k, false, k === sign.format)));
-    s.addEventListener('change', () => { sign.format = s.value; scheduleRender(); });
+    Object.entries(FORMATS).forEach(([k, fm]) => s.append(new Option(fm.label, k, false, k === formatKey(sign.format))));
+    s.addEventListener('change', () => { sign.format = s.value; renderEditor(); scheduleRender(); });
     w.append(s); g.append(w);
   }
 
@@ -581,12 +685,15 @@ function renderEditor() {
     w.append(s); g.append(w);
   }
 
-  g.append(inputField('Wydział', sign.faculty, set('faculty'), { list: 'dlFaculty', cls: 'span2' }));
-  g.append(inputField('Katedra / centrum (Enter = nowa linia)', sign.unit, set('unit'), { area: true, cls: 'span2' }));
-  g.append(inputField('Pracownia (opcjonalnie)', sign.lab, set('lab'), { list: 'dlLab', cls: 'span2' }));
+  if (f.name) g.append(inputField('Nazwa pomieszczenia (Enter = nowa linia)', sign.name, set('name'),
+    { area: true, cls: 'span2', placeholder: 'np. Laboratorium sedymentologiczne' }));
+  if (has('faculty')) g.append(inputField('Wydział', sign.faculty, set('faculty'), { list: 'dlFaculty', cls: 'span2' }));
+  if (has('unit')) g.append(inputField('Katedra / centrum (Enter = nowa linia)', sign.unit, set('unit'), { area: true, cls: 'span2' }));
+  if (has('lab')) g.append(inputField('Pracownia (opcjonalnie)', sign.lab, set('lab'), { list: 'dlLab', cls: 'span2' }));
   ed.append(g);
-  ed.append(el('p', 'hint', 'Wydział, jednostka i pracownia drukują się wielkimi literami — wpisuj normalnie.'));
+  ed.append(el('p', 'hint', 'Wielkie litery ustawia aplikacja zgodnie ze wzorem, więc wpisuj normalnie.'));
 
+  if (!f.people) return;
   const h = el('h2', null, 'Osoby'); h.style.marginTop = '14px'; ed.append(h);
   sign.people.forEach((p, i) => {
     const card = el('div', 'person');
@@ -677,13 +784,13 @@ function signsFromCsv(text) {
     const get = k => (k in idx ? clean(r[idx[k]]) : '');
     const room = get('room');
     if (!room) return;
-    if (!byRoom.has(room)) byRoom.set(room, { ...emptySign(), room, people: [] });
+    if (!byRoom.has(room)) byRoom.set(room, { ...emptySign(), room, format: '', people: [] });
     const sign = byRoom.get(room);
     HEADER_KEYS.forEach(k => { if (!sign[k] && get(k)) sign[k] = get(k); });   // nagłówek z pierwszego niepustego wiersza
     const p = Object.fromEntries(PERSON_KEYS.map(k => [k, get(k)]));
     if (PERSON_KEYS.some(k => p[k])) sign.people.push(p);
   });
-  return [...byRoom.values()];
+  return [...byRoom.values()].map(s => ({ ...s, format: formatKey(s.format) }));   // brak kolumny „rozmiar” = A5
 }
 
 function csvFromSigns(signs) {

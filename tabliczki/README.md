@@ -1,23 +1,38 @@
 # Generator tabliczek na drzwi
 
-Tabliczki przy gabinetach w układzie wzoru wydziałowego: logo UG, numer sali, wydział,
-katedra lub centrum, pracownia, osoby, niebieskie paski. Całość to jeden plik
-[`index.html`](index.html), który otwierasz w przeglądarce (Chrome/Edge). Nic nie trzeba
-instalować, działa bez internetu, a dane nie opuszczają komputera.
+Tabliczki przy pomieszczeniach w układzie wzoru wydziałowego. Są trzy rodzaje:
+
+- **A5 gabinet (148 × 210 mm, pionowo)**: logo UG, numer sali, wydział, katedra lub
+  centrum, pracownia, osoby, niebieskie paski.
+- **A5 pomieszczenie (148 × 210 mm, pionowo)** dla laboratoriów w pełnym rozmiarze: ta sama
+  rama co gabinet, ale zamiast osób jest duża **nazwa pomieszczenia**, a nagłówek nie ma
+  pracowni.
+- **Mała (146 × 100 mm, poziomo)** przy laboratoriach i składach: logo UG, numer sali,
+  wydział, katedra i duża nazwa pomieszczenia.
+
+Pomieszczenia (laboratoria, składy) należą do katedry, dlatego ich tabliczki nie mają
+osób ani pracowni.
+
+Całość to jeden plik [`index.html`](index.html), który otwierasz w przeglądarce
+(Chrome/Edge). Nic nie trzeba instalować, działa bez internetu, a dane nie opuszczają
+komputera.
 
 ## Jak używać
 
-1. **Wczytaj dane.** Upuść CSV, np. [`przyklad.csv`](przyklad.csv) z tabliczkami z wzoru,
-   albo dodaj tabliczkę przyciskiem **+ nowa**. Nowa tabliczka przejmuje nagłówek z bieżącej.
-2. **Edytuj.** Wybierz tabliczkę z listy lub kliknij ją w podglądzie. Pole „Nagłówek jak w…”
-   kopiuje wydział, jednostkę i pracownię z innej tabliczki.
-3. **Drukuj.** Zaznaczone tabliczki drukują się, każda na osobnej stronie.
-   **Eksport CSV** zapisuje aktualny stan do pliku.
+1. **Wczytaj dane.** Upuść CSV, np. [`przyklad.csv`](przyklad.csv), albo dodaj tabliczkę
+   przyciskiem **+ nowa**. Nowa tabliczka przejmuje rozmiar i nagłówek z bieżącej.
+2. **Edytuj.** Wybierz tabliczkę z listy lub kliknij ją w podglądzie. Pole **Rozmiar**
+   przełącza rodzaj tabliczki, a edytor pokazuje tylko pola używane przez dany rozmiar.
+   „Nagłówek jak w…” kopiuje wydział i jednostkę z innej tabliczki.
+3. **Drukuj.** Zaznaczone tabliczki drukują się po kolei, każdy rozmiar na osobnych
+   kartkach. **Eksport CSV** zapisuje aktualny stan do pliku.
 
 Tabliczki zapisują się w przeglądarce (`localStorage`). Plik CSV to kopia do archiwum
 albo przeniesienia na inny komputer.
 
-## Zasady składu (z notatek do wzoru)
+## Zasady składu
+
+A5 gabinet, według notatek do wzoru w PowerPoincie:
 
 | Element | Styl |
 |---|---|
@@ -30,9 +45,21 @@ albo przeniesienia na inny komputer.
 | Stanowiska | 16 pt, wielkie litery, każde w osobnej linii |
 | Odstęp między osobami | 2 puste wiersze nazwiska |
 
+A5 pomieszczenie: numer, wydział i katedra jak na gabinecie, a w miejscu osób
+nazwa pomieszczenia: 36 pt, pogrubiona, wielkie litery, czarna.
+
+Mała tabliczka:
+
+| Element | Styl |
+|---|---|
+| Numer sali | 30 pt, pogrubiony, niebieski UG |
+| Wydział | 10 pt, wielkie litery |
+| Katedra / centrum | 13 pt, pogrubiona, wielkie litery; Enter = nowa linia |
+| Nazwa pomieszczenia | 30 pt, pogrubiona, wielkie litery, czarna; do 2 linii |
+
 - Wielkie litery stawia aplikacja, więc wpisujesz normalnie.
 - Osoby układają się **alfabetycznie po nazwisku**.
-- Gdy tekstu jest za dużo, nagłówek albo strefa osób zmniejszają się równomiernie.
+- Gdy tekstu jest za dużo, dana strefa (nagłówek, osoby, nazwa) zmniejsza się równomiernie.
   Poniżej 70% pojawia się ostrzeżenie (czerwony procent na liście).
 
 ## CSV
@@ -41,20 +68,29 @@ Jeden wiersz to jedna osoba, a wiersze z tym samym numerem sali tworzą jedną t
 Separator `;` (albo `,` lub tabulator), kodowanie UTF-8 albo Windows-1250.
 
 ```
-sala;wydział;jednostka;pracownia;stopień;imię;nazwisko;dopisek;stanowiska
+sala;rozmiar;pomieszczenie;wydział;jednostka;pracownia;stopień;imię;nazwisko;dopisek;stanowiska
 ```
 
-- Nowa linia w komórce (Alt+Enter w Excelu) dzieli jednostkę na wiersze, a w kolumnie
+- `rozmiar`: `a5` (gabinet), `a5-pomieszczenie` albo `mała`. Pusta wartość lub brak kolumny oznacza A5, więc starsze
+  pliki dalej działają.
+- `pomieszczenie`: nazwa pomieszczenia na tabliczce pomieszczenia (A5 lub małej). Kolumny osób zostają wtedy puste.
+- Nowa linia w komórce (Alt+Enter w Excelu) dzieli tekst na wiersze, a w kolumnie
   `stanowiska` oddziela kolejne stanowiska.
-- Kolumny wydziału, jednostki i pracowni wystarczy wypełnić w pierwszym wierszu sali.
+- Kolumny nagłówka (rozmiar, pomieszczenie, wydział, jednostka, pracownia) wystarczy
+  wypełnić w pierwszym wierszu sali.
 - Import podmienia tabliczki o tych samych numerach sal, a resztę dopisuje.
+
+Trzy ostatnie sale w `przyklad.csv` (B301, B317, B302) to zmyślone przykłady tabliczek pomieszczeń.
+Pozostałe pochodzą z wzoru.
 
 ## Druk
 
-- **A4, tabliczka na środku** (domyślnie): A5 wypośrodkowana na A4, ze znacznikami cięcia
-  na przedłużeniu krawędzi. Znaczniki zaczynają się 2 mm od tabliczki i kończą 5 mm przed
-  brzegiem kartki.
-- **Dokładnie rozmiar tabliczki**: strona 148 × 210 mm, np. do druku na papierze A5.
+- **A4** (domyślnie): na kartce mieści się tyle tabliczek, ile wynika z wymiarów. Wychodzi
+  jedna A5 albo dwie małe, jedna nad drugą, całość wyśrodkowana. Znaczniki cięcia biegną
+  na przedłużeniu krawędzi: od 2 mm za tabliczką do brzegu kartki (z zapasem 5 mm) albo
+  do sąsiedniej tabliczki.
+- **Dokładnie rozmiar tabliczki**: każda tabliczka na stronie swojego rozmiaru
+  (148 × 210 lub 146 × 100 mm).
 - **Obrys**: cienka ramka po krawędzi, jak we wzorze z PowerPointa.
 
 W oknie drukowania ustaw skalę 100% (nie „dopasuj”), marginesy „brak”, wyłącz nagłówki
@@ -77,16 +113,21 @@ raz wczytać pliki.
 
 ## Grafika
 
-- Logo UG to PNG wycięty z wzoru w PowerPoincie (ok. 200 dpi w docelowym rozmiarze).
+- Logo UG to PNG wycięty z wzoru w PowerPoincie (ok. 200 dpi w docelowym rozmiarze A5).
 - Paski są przerysowane wektorowo według wzoru, więc drukują się ostro.
 
 ## Rozmiary
 
 Geometria każdego rozmiaru to jeden wpis w stałej `FORMATS` w `index.html` (mm i pt).
-A5 ma wartości odczytane z wzoru. Drugi, mniejszy rozmiar dojdzie jako kolejny wpis,
-a w edytorze pojawi się wtedy wybór rozmiaru.
+Wpis wymienia też elementy, które tabliczka ma (logo, numer, nagłówek, osoby, nazwa
+pomieszczenia, paski). Kolejny rozmiar to kolejny wpis, bez zmian w reszcie kodu.
+
+- A5 ma wartości odczytane z wzoru. Oba warianty A5 korzystają ze wspólnej ramy
+  (`A5_FRAME`), więc poprawka logo, numeru, nagłówka albo pasków obejmuje oba.
+- Mała ma wymiar zmierzony na starej kartce (146 × 100 mm) i układ zaprojektowany na
+  wzór A5. Po pierwszym wydruku warto przyłożyć kartkę do ramki.
 
 ## Plany
 
-- Drugi, mniejszy rozmiar tabliczki (wymiary do ustalenia).
+- Potwierdzić wymiar małej tabliczki wydrukiem próbnym w ramce.
 - Logo w wersji wektorowej, gdy będzie dostępne.
