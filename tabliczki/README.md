@@ -46,7 +46,7 @@ A5 gabinet, według notatek do wzoru w PowerPoincie:
 | Odstęp między osobami | 2 puste wiersze nazwiska |
 
 A5 pomieszczenie: numer, wydział i katedra jak na gabinecie, a w miejscu osób
-nazwa pomieszczenia: 36 pt, pogrubiona, wielkie litery, czarna.
+nazwa pomieszczenia: 36 pt, pogrubiona, wielkie litery, czarna; do 3 linii.
 
 Mała tabliczka:
 
@@ -59,6 +59,8 @@ Mała tabliczka:
 
 - Wielkie litery stawia aplikacja, więc wpisujesz normalnie.
 - Osoby układają się **alfabetycznie po nazwisku**.
+- Słowa łamią się tylko na spacjach (albo tam, gdzie wstawisz Enter). Za długie słowo
+  albo nazwa, która nie mieści się w limicie linii, zmniejsza się w całości.
 - Gdy tekstu jest za dużo, dana strefa (nagłówek, osoby, nazwa) zmniejsza się równomiernie.
   Poniżej 70% pojawia się ostrzeżenie (czerwony procent na liście).
 
