@@ -8,6 +8,7 @@ bez instalacji i bez wysyłania danych.
 |---|---|---|
 | Generator etykiet A4 (CSV → druk) | [`labels/`](labels/) | wersja 1 (bez QR) |
 | Generator tapet katedry (logo + dopisek, poziomice) | [`wallpaper/`](wallpaper/) | wersja 1 |
+| Generator tabliczek na drzwi (A5) | [`tabliczki/`](tabliczki/) | wersja 1 (jeden rozmiar) |
 
 ## Autorzy
 

@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generator tabliczek na drzwi</title>
+<!-- Rozmiar strony ustawia skrypt (A4 albo dokładny wymiar tabliczki). -->
+<style id="pageStyle">@page { size: A4; margin: 0; }</style>
+<style>
+  /* Aptos: najpierw plik wczytany w aplikacji („Aptos Plik”), potem czcionka zainstalowana w systemie. */
+  @font-face { font-family: "Aptos System"; src: local("Aptos"), local("Aptos-Regular"); font-weight: 400; }
+  @font-face { font-family: "Aptos System"; src: local("Aptos Bold"), local("Aptos-Bold"); font-weight: 700; }
+
+  :root {
+    --bg: #e9edf0; --panel: #fff; --ink: #1d2327; --muted: #5f6b73;
+    --line: #d5dbe0; --accent: #1f6feb; --accent-ink: #fff;
+    --warn-bg: #fff4d6; --warn-ink: #6b4700; --err: #c62828; --ok: #2e7d32;
+    --sign-font: "Aptos Plik", "Aptos System", "Segoe UI", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; display: flex; height: 100vh;
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); background: var(--bg);
+  }
+
+  /* ---------- panel ---------- */
+  .panel { width: 430px; flex: none; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); }
+  .panel-top { position: sticky; top: 0; z-index: 2; background: var(--panel); padding: 14px 16px 12px; border-bottom: 1px solid var(--line); }
+  .panel-top h1 { font-size: 17px; margin: 0 0 10px; }
+  .panel section { padding: 12px 16px 14px; border-bottom: 1px solid var(--line); }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 10px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 6px 8px; }
+  .span2 { grid-column: span 2; } .span3 { grid-column: 1 / -1; }
+  .field { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+  .field span { color: var(--muted); }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 6px; }
+  input[type=text], select, textarea {
+    font: inherit; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; width: 100%; background: #fff; color: var(--ink);
+  }
+  textarea { resize: vertical; min-height: 2.6em; }
+  button {
+    font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 5px; background: #f6f8fa; color: var(--ink); cursor: pointer;
+  }
+  button:hover { background: #eef1f4; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; width: 100%; padding: 9px; }
+  button.small { padding: 2px 7px; font-size: 12px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+  .reminder { margin-top: 10px; padding: 8px 10px; background: var(--warn-bg); color: var(--warn-ink); border-radius: 6px; font-size: 12.5px; }
+
+  .signlist { list-style: none; margin: 0 0 8px; padding: 0; max-height: 240px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; }
+  .signlist li { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+  .signlist li:last-child { border-bottom: 0; }
+  .signlist li.current { background: #eef4ff; }
+  .signlist .room { font-weight: 700; min-width: 3.5em; }
+  .signlist .desc { flex: 1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: 11px; padding: 0 5px; border-radius: 4px; background: #e3e8ee; color: var(--ink); }
+  .badge.err { background: #ffe3e3; color: var(--err); font-weight: 600; }
+  .empty { padding: 10px; color: var(--muted); font-size: 13px; }
+
+  .person { border: 1px solid var(--line); border-radius: 6px; padding: 7px; background: #fafbfc; margin-bottom: 6px; }
+  .person-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; font-weight: 600; }
+  .person-head .spacer { flex: 1; }
+
+  .drop { display: block; border: 2px dashed var(--line); border-radius: 8px; padding: 10px; text-align: center; color: var(--muted); cursor: pointer; font-size: 13px; }
+  .drop.over { border-color: var(--accent); background: #eef4ff; }
+  .drop input { display: none; }
+  .status-ok { color: var(--ok); font-weight: 600; } .status-bad { color: var(--err); font-weight: 600; }
+
+  /* ---------- podgląd = wydruk ---------- */
+  .preview { flex: 1; overflow: auto; padding: 20px 24px 40px; }
+  .info { max-width: 210mm; margin: 0 auto 14px; font-size: 13px; color: var(--muted); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .info .warn { color: var(--err); font-weight: 600; }
+  .info select { width: auto; }
+
+  .paper { position: relative; overflow: hidden; margin: 0 auto 20px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); cursor: pointer; }
+  .paper.current { box-shadow: 0 0 0 2px var(--accent), 0 1px 4px rgba(0,0,0,.18); }
+  .paper.skip { opacity: .35; }
+  .marks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  .sign {
+    position: absolute; overflow: hidden; color: #000; font-family: var(--sign-font);
+    outline: 0.2mm dashed #b8c4cc;                      /* krawędź cięcia — tylko na ekranie */
+  }
+  .sign.outlined { outline: 0.2mm solid #000; }        /* obrys jak we wzorze — także na wydruku */
+  .sign > * { position: absolute; }
+  .sign .l { line-height: var(--lh); }
+  .sign .header .l { white-space: pre-line; text-wrap: balance; overflow-wrap: anywhere; }
+  .sign .people-box { display: flex; align-items: center; }
+  .sign .header-in, .sign .people { width: 100%; text-align: center; }
+  .sign .people .l { white-space: nowrap; }
+  .sign .room-no { white-space: nowrap; text-align: right; }
+  .sign .stripes { display: block; }
+
+  @media print {
+    body { display: block; height: auto; background: #fff; }
+    .panel, .info { display: none !important; }
+    .preview { padding: 0; overflow: visible; }
+    #sheets { zoom: 1 !important; }
+    .paper { margin: 0; box-shadow: none !important; break-after: page; }
+    .paper.last { break-after: auto; }
+    .paper.skip { display: none; }
+    .sign { outline: none; }
+    .sign.outlined { outline: 0.2mm solid #000; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="panel">
+  <div class="panel-top">
+    <h1>Generator tabliczek na drzwi</h1>
+    <button class="primary" id="btnPrint">Drukuj…</button>
+    <div class="reminder">
+      <b>W oknie drukowania:</b> skala <b>100% / domyślna</b> (nie „dopasuj”), marginesy <b>brak</b>,
+      nagłówki i stopki <b>wyłączone</b>, grafika tła <b>włączona</b>.
+    </div>
+  </div>
+
+  <!-- ===== Lista ===== -->
+  <section>
+    <h2>Tabliczki</h2>
+    <ul class="signlist" id="signList"></ul>
+    <div class="row">
+      <button class="small" id="btnNew">+ nowa</button>
+      <button class="small" id="btnDup">Duplikuj</button>
+      <button class="small" id="btnDel">Usuń</button>
+      <span style="flex:1"></span>
+      <button class="small" id="btnAll">Zaznacz wszystkie</button>
+      <button class="small" id="btnNone">Odznacz</button>
+    </div>
+    <label class="drop" id="drop" style="margin-top:10px">
+      <input type="file" id="fileCsv" accept=".csv,.txt,text/csv">
+      Upuść CSV albo <u>kliknij, aby wybrać</u>
+    </label>
+    <div class="row" style="margin-top:6px"><button class="small" id="btnExport">Eksport CSV</button></div>
+    <p class="hint">Zaznaczone tabliczki idą do druku. Import CSV podmienia tabliczki o tych samych numerach sal i dopisuje nowe.
+      Wzór kolumn: <code>przyklad.csv</code>.</p>
+  </section>
+
+  <!-- ===== Edycja ===== -->
+  <section id="editor"></section>
+
+  <!-- ===== Wydruk ===== -->
+  <section>
+    <h2>Wydruk</h2>
+    <div class="grid2">
+      <label class="field"><span>Papier</span>
+        <select data-print="paper">
+          <option value="a4">A4, tabliczka na środku</option>
+          <option value="trim">dokładnie rozmiar tabliczki</option>
+        </select>
+      </label>
+    </div>
+    <label class="check" id="marksCheck"><input type="checkbox" data-print="marks"> Znaczniki cięcia</label>
+    <label class="check"><input type="checkbox" data-print="outline"> Obrys tabliczki (cienka ramka jak we wzorze)</label>
+  </section>
+
+  <!-- ===== Czcionka ===== -->
+  <section>
+    <h2>Czcionka Aptos</h2>
+    <div id="fontStatus" class="readout">sprawdzam…</div>
+    <label class="drop" id="dropFont" style="margin-top:8px">
+      <input type="file" id="fileFont" accept=".ttf,.otf,.woff,.woff2" multiple>
+      Wczytaj pliki <b>Aptos.ttf</b> i <b>Aptos-Bold.ttf</b>
+    </label>
+    <div class="row" style="margin-top:6px"><button class="small" id="btnFontClear">Usuń wczytane</button></div>
+    <p class="hint">Wczytana czcionka zostaje w tej przeglądarce (nie trafia do repozytorium ani nigdzie indziej).
+      Bez Aptosa tabliczka użyje czcionki zastępczej i będzie wyglądać inaczej niż wzór.</p>
+  </section>
+</aside>
+
+<main class="preview">
+  <div class="info">
+    <span id="info"></span>
+    <span style="flex:1"></span>
+    <label>Powiększenie
+      <select id="zoomSel"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option></select>
+    </label>
+  </div>
+  <div id="sheets"></div>
+</main>
+
+<datalist id="dlFaculty"></datalist>
+<datalist id="dlLab"></datalist>
+<datalist id="dlDegree"></datalist>
+<datalist id="dlTitle"></datalist>
+
+<script>
+'use strict';
+/* =====================================================================
+   Formaty tabliczek — cała geometria w jednym miejscu (mm i pt).
+   Wartości dla A5 odczytane z wzoru w PowerPoincie (pole tekstowe +
+   wewnętrzne marginesy PowerPointa: 1,27 mm góra/dół, 2,54 mm boki).
+   Kolejny rozmiar = kolejny wpis w FORMATS.
+   ===================================================================== */
+const BRAND_BLUE = '#0063AF';
+
+const FORMATS = {
+  a5: {
+    label: 'A5 pionowo · 148 × 210 mm',
+    w: 148, h: 210,
+    lineHeight: 1.2,                 // interlinia „pojedyncza” PowerPointa dla Aptosa
+    minScale: 0.7,                   // poniżej: ostrzeżenie, że tekst jest za mały
+    logo:   { x: 9, y: 11.6, w: 33.2 },
+    room:   { top: 8.6, right: 11.5, size: 44, bold: true, color: BRAND_BLUE },
+    header: {
+      top: 46.7, bottom: 104, side: 11.5,
+      faculty: { size: 14, upper: true, gapAfter: 3.2 },
+      unit:    { size: 24, upper: true, bold: true, gapAfter: 6.8 },
+      lab:     { size: 14, upper: true },
+    },
+    people: {
+      top: 106.3, bottom: 194.4, side: 6,
+      name:  { size: 20, bold: true },           // stopień imię nazwisko
+      title: { size: 16 },                       // np. „prof. Uniwersytetu Gdańskiego” — jak wpisano
+      roles: { size: 16, upper: true },          // stanowiska — wielkimi literami
+      gapLines: 2,                               // odstęp między osobami = 2 puste wiersze nazwiska
+    },
+    stripes: { h: 14.35, color: BRAND_BLUE },
+  },
+};
+const DEFAULT_FORMAT = 'a5';
+
+const PAPERS = { a4: { w: 210, h: 297 } };       // 'trim' = papier w rozmiarze tabliczki
+const MARKS = { gap: 2, edge: 5, min: 3, stroke: 0.2 };   // znaczniki: odstęp od krawędzi cięcia, zapas od brzegu kartki
+
+/* Paski na dole: wzór z PNG w pptx (454 × 44 px), przerysowany wektorowo.
+   Dwa zestawy pasków przesunięte o jedną szerokość paska, zmieniane w kolumnach. */
+const STRIPES = {
+  vb: [454, 44], band: 7,
+  rows: { A: [1, 15, 29], B: [8, 22, 36] },
+  cols: [[0, 227, 'A'], [227, 424, 'B'], [424, 454, 'A']],
+};
+
+const LOGO_UG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQ0AAABsCAIAAAD/r3AUAAAUDklEQVR42u1dO0wjWbquuWpL60rKkitYB36MHJgEYZMggSUbie5kJdodDVkbtNIGjIQnoLt1EyDs6WCMtslGYDImWLWbsBuJQgK0JLgQ9+riwFfG1spJWeu6QXEl64ob/L1njs+pKpcfGNv8nzpoG9fr1PnO/zj/47v7+3uhFbmzSu68IrRDdmky6peYL9Wqnjm4ftBj07OB9FxAQCAGiGf8V+W6cVLU2h7ZMJqmXz70scmIjK8NMWD8Gw4BAoE8QSCQJwgE8gSBGF47PuQVE5StrFZ0/c7E7M6dVRTO7C5rhpOrdnSs5HZFAxJ9e/jaEAPGd7xfmEHyw6kTN9TDIRGRlfU4vioE6l0IBPIEgUCeIBDIEwQCYebvYsAHYg0Yj34DCER7fxcCgUC9C4FAniAQyBMEAnmCQAwLnuEQDBhKUYPYtmRExpyzUQH6uwaKfKH2aueCfDxejyNVRkOeOMyGH2aMUMZ87qzCfESejAZPHGbDDzM6mmoNo6lWdfIx5BVDsnmgflkzynWju6s4hEd04RRE+2QYoVb1+Q+n5OPG4sTm4oT52n9e2Tq8IR/vf031fvXNlxNKUYN8HsntyiyEcQraWQV/zjt5U10ur1TCSNvcDbTjB4qoXyq/fwECLeqXUJ6gPEFY6lpokyBPxh+MhQNioWE084WaUtTApIn6pWRETsV8To5Vqzpd0IyRM6aHOPyrIAhwV+Q3Ia8IN8aLMqvnyp1V8mqNcZaoVR3OTNtvqZiPDlp1YgqaGoHMgJBfMpczdZOQV2D1FsgV6Us0jCZ9cn4YkSe9WjjH6/GG0UzvXtJVBE6K2vZRacov5Vdn6MnBH5uMyLmzyvZRiXy5tzxNz8jsUYk2k+z/WtiYj4oSuVbq48VtvaXqwIkg7J9XMgeu7NIk4yTk700QhNTHC3guMi/hYT+rNWZYTora1uFNIiKTYp9OTEFTIzBzcM37lvbPK/uUY5YxF/OFWubgmn3YorZ9VAp6xdzKNLl/5oqAK7P3Qv8A9+N7Re6s8mrnwrTUxlVVT+1cmBa/pMEseEyFjXyhZvNX+mPQK5LlPHdWiW0dM/OGQL9rLu9d2lepVYra/IdT/rlSOxc8Seipmfz5lBYjA3sFVg97WzfmP5wyHvlOgTzpFfu2u09XVT1LyQpzx0tEltwu06nfMJpXrXOOoc2JmSqiVvXlvcu2d759VGLORoNZdKHMTb5Qa7uLEA1Ig0wZyhdqTh42c3DtsBhQn+2TKU6Hs6pg1N9jhxaJiJyMyEpRO+EEQluHZjIik0X6tm6UNQO0Nb56k37XVKs6TETmr4QnjKBIROTMQhgGPHfWor1kDq55I8oUcD+0oJDcrvyPM8mIDMr95uHNVVWX3K786kyPI5ldmgQhTOtCr812k0EJpL8hP2sYzexRibwL/a65eXiTW5lOzwZgoDIH12QNmvJL2aVJ2j7pG0+yS5OMDue8glEvxw4hGDuECU65cqCE0DwBAqTlgClPBEFQbjRTnsCMV6s6PZKvZwO5lWn6QiFZJLLitm4oRc3K/ya5XZnnYcY6Z6YpePBSMV8q5kvvXqbnAr07u00vF5JF/j7zhRq9vDLGWyrmS338XUvcP69klyZD8jd3An2fbZ2QaMf3gSTKepwe9FTMN+WXrjrR0VMx30+/XbfwZC7Aa1nkr5nnYYYnREQzh6RiPoZOzCy04onkdilv4jYalH7XfLVzAes3nIEm5MCULto8C8kiL2OZBcih/ESe9BmbixP8ChrtkCchWQx6RWKJgnpT1gzyDU088uJpuUFev1ppuS4t2azsdXPjeGWaJ0kq5mPsFuKGSkTkVNTXF3niHLRPGez1tr7K7niCdnyvMJ0WVjFjDr1eV1Wd8eiDjKInt5Vx0uiTmWf6XFG/tGYRa3NS1H767Tr09kuPnqWOcDUox9pT54mN01YZrL3EKD8ME5hkFeavkntwe/zZpcm95emgRZVn8Dibqott/ePDjMfRuxjdQBCE/23+32AuzZTxtiFDL27ELsDvojA8aRhNsh2pFDUP5UqmSUJ/H/SK5fcv+n6r6blAei4Ad6gUNd5XuXl4k4r5GOqabqr0OMi0Ovoy6sv/ODPCPOF3N+k4UMDG4sTf/z3BjDW/b9oHnrRqRFdVnbhZmWlK71tNDWRDIBGRicmRO6uQyQftA+gxPClq9JYLzbFoQKJdzFZmOnE9d2c9Aw3ImZWiRrtZyX8kt4s8xUlRYy4KwT49rnrkWkpRaxhNU3Wxl4d9unrXy2jLyp3evWRUgrJmMFsQg9FqUtSN0Ss0XN0jumi68j/49jizLZsMpvtr+UItunW82dUylP1aerVzwexamAaz8eOW2rkgN9MwmpmDa+ebZkS6ljUj+7UE56Evqt81kx9Oee0u+7X0/bs2VpNa+RZRBvFsvJbxFP1dqZiP9hVeVfXQ2y/puUDIKzbummXNYLzygiAMJlEkOSHbmy7JiMxbrsHW+MKQLNJy6aqqR7eOwXXrEV1lzcidV+CvW4c3Ia/YUSpoevcSvFv755Vy3cgshKN+qVw3YO7St/Rt3J6HmaH+/t0XEI+d7iyfFLXQ2y8e0QUj0Lhrbi5OpOcCm4c3RPLDw8JmDlwid16B32cOrm0CBfS7Zujtl2hAgpF5GWWVxqfIk/RcgMwVMkzb1tElG4sTPUpth4j6Jdo7bMoT/j75hTy3PB3dOiazEJ7O9AGX9y6dh5koRY3eyz/hIg/oESY3/DLqY+LBnG8oM8fe1o3b+u8iEaIccivTtDv4tm6YPqx+10z+fFp+/4IoZklqNYEfkI+f1Rqjwj1Rf1d+dcahyfF6NtDfNLqOvF7EOLFR//gvQ7KovInTBowV1hbCzmOxkhF5b7n9TuKUX6JHLLcy3bV1B9uppriq6qB6Obwr8NTRUz89G7AZIkb1eqI88YgudWN+Y3HCZqSCXvHT6syA95h54dDiy2o1UawOAdGkbsy/ng3Y+AyO1+N0UJNDUXy8Hk9YW2trC2EmgdZmqBMRec1WoQUOmL4j+h7Sc4HCxrzNXb2M+gob84yGabOaBL0i4w/4buPzf3XnVuK9WM5jtH75YZJuuSgIwru//efFf/+zu7nVY+Z0vlBTqzpJ34F0IvugJvvUKMG6BkXbY5kf8L9hcpg8osteIEB6E5gQMDk8bldyQuaPcvJc9G0oNxq9pwlJUTaHwM4puQSMMB1/JVgUIQC3GBlPj9uVivlMNWGwLRt3TbWih2TRI7ogL81GbeZPbjo4j8OTXo7tO08QD6viFmohWTQlM6S40Kv4Q+z29AUY34V4QJQ1AwLMXs8GYMsFBA6kDTMLdHeRV8gTxMiDbEMxWbs8hrxKE8ZBIh4KSlGzyRDmnVGDcb4Pmif8nmUq6sPJgSAIecWEgziGoFc8Xo8PeeXb7vUuPpYRNkdHPX0X0TeeyKKyHlerOkSCMJEEEOOcivlGojZ09zzh9yw9okt5E0/+fIpUQRBEqdRzcD239WWPm33CVxKJ+iXlTdxe2r6M+kJeESfQEwSkoY9iA+ee/F3ZryVSyKOFKutxcPwx32PJUMSIoiee6HfN9O6laXJM1C9h33fE2KBXv/BntcakIiAQyBMT7J9XeqSKUtQGnGSLQAxO76KpolZ100o2NoDcsexRyaoyLMLhKkNnJiYj8iNGu0HGfMgrmpbEf+o8EQThqqrHto4hjMc+UAcqD+TV2qj3u7OHWtXp5GFSxb3voBPTg14xs9pr9EfXXazokgaZAxedFIU8YQXL/nlFcrsgS44ME8SZ81WlxxgNo3nSWlH7Ia6SO6vQRRvyP8484tSkc9D1u2a+UBuV/rKD5gkZI5uk0OFUXdSKTrIprJIQhhC0xvVwIsv50oD2yXgu+dmjUvZryTSAIOgVoVLB0N5/7qxCTLuNIbjVzPMw0bskt2uY4+SRJx3YD3y7KRq3dWN57zJ7VGJ6Yg2VGITQh2hrSvqjCbfFCehs4XG7BlxoGHnyUCRxGIcGpW7sK7c/mjwZeH34tmDquyJPRlvd4kkS/FciNSSU03IGwg6Y5g302SDDXq3qHrcrGpBscusZkOR1CL6OBiSrfG46LZ7EETK53W29sXQlgGREtkk0b3vb5VY5DD4bq6oAyJP2oCtnDgn4MoS//DDJlMDJfi3RDUmsAjc3D28Y8+azWts6vJnyS+nZgL3KtHl4w7g6SFbT2kKYaRdBt/ZMRGRlPc5fWhAE0walwBC+06ogCD/9dk13Hu1OFJNWRKZNSZEnlsSA6oMkGZqvJvyIKGsGk4DKkwRMUo/ogsZ/pj9oGM3kh1MrN/dVVadpxhN127Zp4/ZRSa3qTIGfFvXGouwGlIsXqEpzYO7bdDA8KWqxreNPqzNOzG4bkow3+smT4XcQwZpHf0xEZKtiaum5QLluWClR6d3LrveCTMs68tM3d1YxHcy2DnfoukjEkX1fX1janGhfT5Yk/eTJqBQHYtKV7bUjqyfKF2pM5rf0L13ftDwxg1TMR+qjkgMhioc+kHSfs4FprV56j08paszMhu/pQsNO9C6eJEzvT+RJe0UL+r6OxAOfWLSh6ghMghrTohEqsduXF0nPBXJnFUb8ZhbC37/78ruKaBv29no2QAqB8kqg1bG/+6MiQnouAAGsbdloShIrxwbyxJwkw+kzdQhG38gcXKvW2hSsu2XNOGntZcXMGI/oyi5NMk4zVjVaCDMpbg2jWa4bDt0eawthei2HK7btTigIwvLeJbRBhVfmRGtCkvSBJ/Yk4auADjmYptL84/BLtakrFlpF2xgh5JB8oQYxts6tnaBX5BUeK8EY9UsM90gMHsgW+w1BtaIzXrUnSJJeefLLD+Z6bVkzskelfKFmtaD2t27qoLlUYev/WhkhNjyxD5npSAbaA0QN7+/S75qf1dpntbZ5eLO5OGHlzOALcD3NTKHu87SsPEWbhzffv/uyPaxZJVNc9/ROz8A01O1iZQVzYsushpOTZgydIj0X+LQ6Y3Vm/a7502/Xzntr6XfNVLte28iTNr6g9O7lQzRV7COY5Z9pR6asx+9/TZF/TF8EONZJe057BqZ2LmgtS3K71hbCx+vx+19TTBn/fiEV8zX++qdPqzNrC2HTbiTZryXn0b4nrZlhyBO7VZlXiDcPb+ydPMMAZjcNMjGtVn26ZAzpicHszecLNdMZZtUQkDGBpvxS+f2L7NLkgzoMG0azYTRTMV92aVLdmL//NfWptVOSfmdnSU75JWbJ2Dq8UcY6za4/POG3HdSqvjUKawzsXbR88/GCnyKgGtF6EXGehmSRPsNt3eA38tK7l1ZqJ0MquslTw2jyVTb74pyIbh0zNQyAMw7XRGU9zrfFSn28eDq2yrOuZxsvuEflmbNLk68oDfu2bpCMZZiy+UKN2fJjqqlnFsJ0WMr+eYXeE6TTQtoic3CdW5kOecV8odZR/1vnJAGv7m3dSH44zSyEv/X4bE1LFixi2GjvVn51hmn7mNq5UDfmkSfm4MMcGkbTRuPiu2fxnv6/JEKMwZM7qzyQFpeK+dYWwowzyr7xANPaL/M8TBrJErI5FKfMdIS6Ag+nbtEnt0kyTVg0naK93iFZzK1M00vMVVXPHFw/hV35bvQu3ta03ySJBiRw1ZN//G/+KP2B+c2DpkZllybXHHfb2Fue5neslfV42/acpi6mkCy+HFRhf4/octLjU3K7HM51WGLob7aPSkzhz/HkSV9K/T6untrdI2SXJo/X40HbY21aDnhEl7Iet5rx0APVyjTPrUyblmCe8kvH1jHCXVqS7Xp8TvmljiIqskuTzNnSu5djb6g868uyXX7UrZKuHyEZkcvvXyhFjSQw3daNoFeEfoLQJ81+tc7/OAMBhcT5A4lWQK2oXyJbTPREBI7lCzWSZQUpVmA5EKrQml52aZLO0zK9H5pj9NpBV3ymy2VAWwWeIVbnIcivzphqEOnZwLjWj37Wl9CsZETeerxn6PERekxVDcmiVVhxSBZtOGxV6Mz0Zpw8o/1TOK/43HY0rOqp2z/vaOtdHtEV7FBv4YXsI/Zp4Ft9IxD9lyewfnTkWbqtG0yHINhSsHKGZg6uman8l0Toj9If6G/+4x//k2x1gjlUebEqPmJIeSIIglLUGJ1hc3HCKrmUj4SFAjYtsr7bOMhxKhKFGF69q7upxrsC03OBqcdY2rHxEGJAPPGIrkSHs23/vMIHNeWtg1IfCFN+aVwNR8TQ8URolyZuCj5iNCSLypv4IKVKZiGMrxAxOJ6kYr5ORQHUzuGtamU9vrE4YXO2fnmoxqyCLWKY8d39/T2RD50G/NqngMLmHWNLhLzmLvYu7PhRqfCCGCueNIxm6O2XTuNV+1XBqVOeSO6xakODGA29C6x5qyRpe4M+vXs5+MYXUK8R3x9i0DwBszjY+c76/nkl+eG0l0i4smZ0dHjQK6IFj3gcvQugFDUnZaBMFaHMc7YmVVvkC7XsUalTy4Qv14JADJQngoMq0W3Zkp4N2GxrNIwmhOi2rS9qCqbEGwLxODyxr8TuXDWK+iU6owtq3kHsetenfZpF1hDDyBMwGOhM6CGB5HapG/O4AY94ZDueAHbWBxyE0pYkyps4kgQxRDwRYGd9aKgy6tW+EWPLk+GhCpIEMdQ8IVQJPl66IpIEMbx2PIOG0UztXAy+nnwiIudXZ9C7hRgNngC6CJTsBRjmiBhJngiCUNaM9N7lQwuWRETOLU+jawsxqjwBKEXNps50Lwh6xdzKNMakIMaBJ4Qt2a8lvt9S1zKELy6BQIw8T4gmli/UmKLUzjHll9KzAWgMjS8DMbY8IYDoRrWqK0XNJogLqpImI3LULyUjMvqyEE+LJ6ZQqzqkcHlEF+6BIEYX/w8DeVgnD6RVyAAAAABJRU5ErkJggg==';
+
+/* Podpowiedzi w polach (uzupełniane wartościami użytymi na tabliczkach). */
+const SUGGEST = {
+  degree: ['mgr', 'mgr inż.', 'dr', 'dr inż.', 'dr hab.', 'dr hab. inż.', 'prof. dr hab.', 'prof. dr hab. inż.'],
+  title: ['prof. Uniwersytetu Gdańskiego'],
+};
+
+/* Kolumny CSV: klucz → nagłówek przy eksporcie + akceptowane nazwy przy imporcie (bez polskich znaków). */
+const CSV_COLS = [
+  ['room',    'sala',       ['sala', 'pokoj', 'numer']],
+  ['faculty', 'wydział',    ['wydzial']],
+  ['unit',    'jednostka',  ['jednostka', 'katedra', 'centrum']],
+  ['lab',     'pracownia',  ['pracownia', 'zaklad']],
+  ['degree',  'stopień',    ['stopien', 'tytul', 'stopientytul']],
+  ['first',   'imię',       ['imie', 'imiona']],
+  ['last',    'nazwisko',   ['nazwisko']],
+  ['title',   'dopisek',    ['dopisek', 'tytulprofesorski']],
+  ['roles',   'stanowiska', ['stanowiska', 'stanowisko', 'funkcja', 'funkcje']],
+];
+const HEADER_KEYS = ['room', 'faculty', 'unit', 'lab'];
+const PERSON_KEYS = ['degree', 'first', 'last', 'title', 'roles'];
+
+const KEYS = { state: 'tabliczki.state.v1' };
+
+/* =====================================================================
+   Narzędzia
+   ===================================================================== */
+const store = {
+  get(key, fallback) {
+    try { const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); }
+    catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* brak pamięci — działamy dalej */ }
+  },
+};
+
+const $ = sel => document.querySelector(sel);
+const mm = v => `${+v.toFixed(3)}mm`;
+const upper = s => s.toLocaleUpperCase('pl-PL');
+const clean = s => (s ?? '').replace(/\r/g, '').split('\n').map(x => x.trim().replace(/\s+/g, ' ')).join('\n').trim();
+const lines = s => clean(s).split('\n').filter(Boolean);
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const plain = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l').replace(/Ł/g, 'L').toLowerCase().replace(/[^a-z0-9]/g, '');
+const collator = new Intl.Collator('pl', { sensitivity: 'base' });
+const fmtOf = sign => FORMATS[sign.format] ?? FORMATS[DEFAULT_FORMAT];
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+const emptyPerson = () => ({ degree: '', first: '', last: '', title: '', roles: '' });
+const emptySign = (from = {}) => ({
+  id: newId(), format: from.format ?? DEFAULT_FORMAT, print: true,
+  room: '', faculty: from.faculty ?? '', unit: from.unit ?? '', lab: from.lab ?? '',
+  people: [emptyPerson()],
+});
+
+const personName = p => [p.degree, p.first, p.last].map(clean).filter(Boolean).join(' ');
+const sortedPeople = sign => sign.people
+  .filter(p => personName(p) || clean(p.title) || clean(p.roles))
+  .slice()
+  .sort((a, b) => collator.compare(clean(a.last), clean(b.last)) || collator.compare(clean(a.first), clean(b.first)));
+
+/* =====================================================================
+   Stan
+   ===================================================================== */
+const saved = store.get(KEYS.state, {});
+const state = {
+  signs: Array.isArray(saved.signs) ? saved.signs : [],
+  current: saved.current ?? null,
+  print: { paper: 'a4', marks: true, outline: false, ...saved.print },
+  zoom: saved.zoom ?? 0.75,
+};
+const fitResults = new Map();       // id → { header, people } (skala 0–1)
+
+const save = () => store.set(KEYS.state, state);
+const currentSign = () => state.signs.find(s => s.id === state.current) ?? null;
+
+/* =====================================================================
+   Render tabliczki
+   ===================================================================== */
+function textLine(text, spec) {
+  const d = el('div', 'l', spec.upper ? upper(text) : text);
+  d.style.fontSize = `calc(var(--k, 1) * ${spec.size}pt)`;
+  d.style.fontWeight = spec.bold ? 700 : 400;
+  if (spec.color) d.style.color = spec.color;
+  return d;
+}
+
+function place(node, { x, y, w, h, right }) {
+  if (x != null) node.style.left = mm(x);
+  if (right != null) node.style.right = mm(right);
+  if (y != null) node.style.top = mm(y);
+  if (w != null) node.style.width = mm(w);
+  if (h != null) node.style.height = mm(h);
+  return node;
+}
+
+function stripesSvg(f) {
+  const [vw, vh] = STRIPES.vb;
+  const rects = STRIPES.cols.flatMap(([x0, x1, set]) =>
+    STRIPES.rows[set].map(y => `<rect x="${x0}" y="${y}" width="${x1 - x0}" height="${STRIPES.band}"/>`)).join('');
+  const wrap = el('div', 'stripes');
+  wrap.innerHTML = `<svg viewBox="0 0 ${vw} ${vh}" width="100%" height="100%" preserveAspectRatio="none"
+    fill="${f.stripes.color}" shape-rendering="crispEdges">${rects}</svg>`;
+  return place(wrap, { x: 0, y: f.h - f.stripes.h, w: f.w, h: f.stripes.h });
+}
+
+function buildSign(sign) {
+  const f = fmtOf(sign);
+  const root = place(el('div', 'sign'), { w: f.w, h: f.h });
+  root.style.setProperty('--lh', f.lineHeight);
+  if (state.print.outline) root.classList.add('outlined');
+
+  const logo = el('img', 'logo'); logo.src = LOGO_UG; logo.alt = '';
+  root.append(place(logo, { x: f.logo.x, y: f.logo.y, w: f.logo.w }));
+
+  if (clean(sign.room)) {
+    root.append(place(textLine(clean(sign.room), f.room), { y: f.room.top, right: f.room.right }));
+    root.lastChild.classList.add('room-no');
+  }
+
+  // Nagłówek: wydział / jednostka / pracownia
+  const H = f.header;
+  const header = place(el('div', 'header'), { x: H.side, y: H.top, w: f.w - 2 * H.side, h: H.bottom - H.top });
+  const hIn = el('div', 'header-in');
+  const parts = ['faculty', 'unit', 'lab'].filter(k => clean(sign[k]));
+  parts.forEach((k, i) => {
+    const d = textLine(clean(sign[k]), H[k]);
+    if (i < parts.length - 1) d.style.marginBottom = `calc(var(--k, 1) * ${H[k].gapAfter}mm)`;
+    hIn.append(d);
+  });
+  header.append(hIn); root.append(header);
+
+  // Osoby — alfabetycznie po nazwisku, wyśrodkowane w pionie w swojej strefie
+  const P = f.people;
+  const box = place(el('div', 'people-box'), { x: P.side, y: P.top, w: f.w - 2 * P.side, h: P.bottom - P.top });
+  const list = el('div', 'people');
+  const gap = P.gapLines * P.name.size * f.lineHeight;
+  sortedPeople(sign).forEach((p, i) => {
+    const block = el('div', 'who');
+    if (i > 0) block.style.marginTop = `calc(var(--k, 1) * ${gap}pt)`;
+    if (personName(p)) block.append(textLine(personName(p), P.name));
+    lines(p.title).forEach(t => block.append(textLine(t, P.title)));
+    lines(p.roles).forEach(t => block.append(textLine(t, P.roles)));
+    list.append(block);
+  });
+  box.append(list); root.append(box);
+
+  root.append(stripesSvg(f));
+  return { root, fits: [['header', header, hIn], ['people', box, list]] };
+}
+
+/* Zmniejsza blok równomiernie (zmienna --k), aż zmieści się w swojej strefie. */
+function fitBox(box, inner) {
+  const ok = k => {
+    inner.style.setProperty('--k', k);
+    return inner.offsetHeight <= box.clientHeight + 0.5 && inner.scrollWidth <= inner.clientWidth + 0.5;
+  };
+  if (ok(1)) return 1;
+  let lo = 0.2, hi = 1;
+  for (let i = 0; i < 10; i++) { const m = (lo + hi) / 2; if (ok(m)) lo = m; else hi = m; }
+  ok(lo);
+  return lo;
+}
+
+function paperFor(f) {
+  return state.print.paper === 'a4' ? PAPERS.a4 : { w: f.w, h: f.h };
+}
+
+function cropMarks(paper, f, ox, oy) {
+  const segs = [];
+  const add = (x1, y1, x2, y2) => { if (Math.hypot(x2 - x1, y2 - y1) >= MARKS.min) segs.push([x1, y1, x2, y2]); };
+  for (const [x, dx] of [[ox, -1], [ox + f.w, 1]]) {
+    for (const [y, dy] of [[oy, -1], [oy + f.h, 1]]) {
+      add(x + dx * MARKS.gap, y, dx < 0 ? MARKS.edge : paper.w - MARKS.edge, y);   // poziomy, na przedłużeniu krawędzi
+      add(x, y + dy * MARKS.gap, x, dy < 0 ? MARKS.edge : paper.h - MARKS.edge);   // pionowy
+    }
+  }
+  if (!segs.length) return null;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'marks');
+  svg.setAttribute('viewBox', `0 0 ${paper.w} ${paper.h}`);
+  svg.innerHTML = segs.map(([a, b, c, d]) =>
+    `<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="#000" stroke-width="${MARKS.stroke}"/>`).join('');
+  return svg;
+}
+
+function renderPreview() {
+  const host = $('#sheets');
+  host.replaceChildren();
+  host.style.zoom = state.zoom;
+  fitResults.clear();
+
+  if (!state.signs.length) {
+    host.append(el('div', 'empty', 'Brak tabliczek. Dodaj nową („+ nowa”) albo wczytaj plik CSV, np. przyklad.csv z katalogu narzędzia.'));
+    renderInfo(); return;
+  }
+
+  const printed = state.signs.filter(s => s.print);
+  let pageSize = null;
+  state.signs.forEach(sign => {
+    const f = fmtOf(sign);
+    const paper = paperFor(f);
+    pageSize ??= sign.print ? paper : null;
+    const ox = (paper.w - f.w) / 2, oy = (paper.h - f.h) / 2;
+
+    const sheet = place(el('div', 'paper'), { w: paper.w, h: paper.h });
+    sheet.classList.toggle('current', sign.id === state.current);
+    sheet.classList.toggle('skip', !sign.print);
+    sheet.classList.toggle('last', sign === printed.at(-1));
+    sheet.addEventListener('click', () => selectSign(sign.id));
+
+    const { root, fits } = buildSign(sign);
+    place(root, { x: ox, y: oy });
+    sheet.append(root);
+    if (state.print.marks) { const m = cropMarks(paper, f, ox, oy); if (m) sheet.append(m); }
+    host.append(sheet);
+
+    const res = {};
+    fits.forEach(([key, box, inner]) => { res[key] = fitBox(box, inner); });
+    fitResults.set(sign.id, res);
+  });
+
+  // Jedna wielkość strony na całe zadanie druku (pierwsza drukowana tabliczka).
+  const ps = pageSize ?? PAPERS.a4;
+  $('#pageStyle').textContent = `@page { size: ${ps.w}mm ${ps.h}mm; margin: 0; }`;
+  document.querySelectorAll('.paper').forEach(p => { p.style.height = mm(ps.h - 0.5); });   // zapas na zaokrąglenia → bez pustych stron
+  renderInfo();
+  renderList();
+}
+
+function shrinkOf(id) {
+  const r = fitResults.get(id);
+  return r ? Math.min(r.header, r.people) : 1;
+}
+
+function renderInfo() {
+  const n = state.signs.filter(s => s.print).length;
+  const bad = state.signs.filter(s => shrinkOf(s.id) < fmtOf(s).minScale);
+  const info = $('#info');
+  info.replaceChildren(`Do druku: ${n} z ${state.signs.length}. `);
+  if (bad.length) info.append(el('span', 'warn',
+    `Za dużo tekstu (czcionka < ${Math.round(FORMATS[DEFAULT_FORMAT].minScale * 100)}%): ${bad.map(s => clean(s.room) || '(bez numeru)').join(', ')}`));
+}
+
+let renderTimer;
+function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(() => { renderPreview(); save(); }, 120); }
+
+/* =====================================================================
+   Lista tabliczek
+   ===================================================================== */
+function renderList() {
+  const ul = $('#signList');
+  ul.replaceChildren();
+  if (!state.signs.length) { ul.append(el('li', 'empty', 'Pusto.')); return; }
+  state.signs.forEach(sign => {
+    const li = el('li');
+    li.classList.toggle('current', sign.id === state.current);
+    const cb = el('input'); cb.type = 'checkbox'; cb.checked = sign.print; cb.title = 'Drukuj';
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', () => { sign.print = cb.checked; scheduleRender(); });
+    const k = shrinkOf(sign.id);
+    li.append(cb, el('span', 'room', clean(sign.room) || '—'),
+      el('span', 'desc', `${lines(sign.unit).join(' ')} · ${sortedPeople(sign).length} os.`));
+    if (k < 0.995) li.append(el('span', k < fmtOf(sign).minScale ? 'badge err' : 'badge', `${Math.round(k * 100)}%`));
+    li.addEventListener('click', () => selectSign(sign.id));
+    ul.append(li);
+  });
+}
+
+function selectSign(id) {
+  if (state.current === id) return;
+  state.current = id;
+  renderEditor();
+  document.querySelectorAll('.paper').forEach((p, i) => p.classList.toggle('current', state.signs[i]?.id === id));
+  renderList();
+  document.querySelectorAll('.paper')[state.signs.findIndex(s => s.id === id)]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  save();
+}
+
+/* =====================================================================
+   Edytor
+   ===================================================================== */
+function inputField(label, value, onInput, { area = false, list, cls = '', rows = 2, placeholder = '' } = {}) {
+  const wrap = el('label', `field ${cls}`);
+  wrap.append(el('span', null, label));
+  const inp = el(area ? 'textarea' : 'input');
+  if (!area) inp.type = 'text'; else inp.rows = rows;
+  if (list) inp.setAttribute('list', list);
+  inp.placeholder = placeholder;
+  inp.value = value ?? '';
+  inp.addEventListener('input', () => onInput(inp.value));
+  wrap.append(inp);
+  return wrap;
+}
+
+function headerCombos(except) {
+  const seen = new Map();
+  state.signs.filter(s => s !== except && clean(s.unit)).forEach(s => {
+    const key = [s.faculty, s.unit, s.lab].map(clean).join('|');
+    if (!seen.has(key)) seen.set(key, s);
+  });
+  return [...seen.values()];
+}
+
+function renderEditor() {
+  const ed = $('#editor');
+  ed.replaceChildren();
+  const sign = currentSign();
+  ed.append(el('h2', null, sign ? `Edycja tabliczki ${clean(sign.room)}` : 'Edycja tabliczki'));
+  if (!sign) { ed.append(el('p', 'hint', 'Wybierz tabliczkę z listy albo dodaj nową.')); return; }
+
+  const set = key => v => { sign[key] = v; scheduleRender(); if (key !== 'room') refreshDatalists(); };
+  const g = el('div', 'grid2');
+
+  if (Object.keys(FORMATS).length > 1) {
+    const w = el('label', 'field span2'); w.append(el('span', null, 'Rozmiar'));
+    const s = el('select');
+    Object.entries(FORMATS).forEach(([k, f]) => s.append(new Option(f.label, k, false, k === sign.format)));
+    s.addEventListener('change', () => { sign.format = s.value; scheduleRender(); });
+    w.append(s); g.append(w);
+  }
+
+  g.append(inputField('Numer sali', sign.room, v => { set('room')(v); ed.firstChild.textContent = `Edycja tabliczki ${clean(v)}`; }));
+
+  const combos = headerCombos(sign);
+  if (combos.length) {
+    const w = el('label', 'field'); w.append(el('span', null, 'Nagłówek jak w…'));
+    const s = el('select');
+    s.append(new Option('— wybierz —', ''));
+    combos.forEach((c, i) => s.append(new Option(`${clean(c.room)}: ${lines(c.unit).join(' ')}${clean(c.lab) ? ' / ' + clean(c.lab) : ''}`, i)));
+    s.addEventListener('change', () => {
+      const c = combos[+s.value]; if (!c) return;
+      Object.assign(sign, { faculty: c.faculty, unit: c.unit, lab: c.lab });
+      renderEditor(); scheduleRender();
+    });
+    w.append(s); g.append(w);
+  }
+
+  g.append(inputField('Wydział', sign.faculty, set('faculty'), { list: 'dlFaculty', cls: 'span2' }));
+  g.append(inputField('Katedra / centrum (Enter = nowa linia)', sign.unit, set('unit'), { area: true, cls: 'span2' }));
+  g.append(inputField('Pracownia (opcjonalnie)', sign.lab, set('lab'), { list: 'dlLab', cls: 'span2' }));
+  ed.append(g);
+  ed.append(el('p', 'hint', 'Wydział, jednostka i pracownia drukują się wielkimi literami — wpisuj normalnie.'));
+
+  const h = el('h2', null, 'Osoby'); h.style.marginTop = '14px'; ed.append(h);
+  sign.people.forEach((p, i) => {
+    const card = el('div', 'person');
+    const head = el('div', 'person-head');
+    head.append(el('span', null, `Osoba ${i + 1}`), el('span', 'spacer'));
+    const del = el('button', 'small', 'Usuń');
+    del.addEventListener('click', () => { sign.people.splice(i, 1); renderEditor(); scheduleRender(); });
+    head.append(del);
+    const pg = el('div', 'grid3');
+    const setP = key => v => { p[key] = v; scheduleRender(); };
+    pg.append(
+      inputField('Stopień', p.degree, setP('degree'), { list: 'dlDegree' }),
+      inputField('Imię', p.first, setP('first')),
+      inputField('Nazwisko', p.last, setP('last')),
+      inputField('Dopisek (jak wpisano)', p.title, setP('title'), { list: 'dlTitle', cls: 'span3' }),
+      inputField('Stanowiska (każde w nowej linii)', p.roles, setP('roles'), { area: true, cls: 'span3', placeholder: 'np. Kierownik pracowni' }),
+    );
+    card.append(head, pg);
+    ed.append(card);
+  });
+  const add = el('button', 'small', '+ osoba');
+  add.addEventListener('click', () => { sign.people.push(emptyPerson()); renderEditor(); scheduleRender(); });
+  ed.append(add);
+  ed.append(el('p', 'hint', 'Na tabliczce osoby układają się alfabetycznie po nazwisku. Stanowiska drukują się wielkimi literami.'));
+}
+
+function refreshDatalists() {
+  const fill = (id, base, values) => {
+    const all = [...new Set([...base, ...values.map(clean).filter(Boolean)])].sort(collator.compare);
+    $(id).replaceChildren(...all.map(v => new Option(v)));
+  };
+  const people = state.signs.flatMap(s => s.people);
+  fill('#dlFaculty', [], state.signs.map(s => s.faculty));
+  fill('#dlLab', [], state.signs.map(s => s.lab));
+  fill('#dlDegree', SUGGEST.degree, people.map(p => p.degree));
+  fill('#dlTitle', SUGGEST.title, people.map(p => p.title));
+}
+
+/* =====================================================================
+   CSV — jeden wiersz na osobę; tabliczki grupowane po numerze sali.
+   ===================================================================== */
+function detectDelimiter(text) {
+  const firstLine = text.split(/\r?\n/, 1)[0].replace(/"[^"]*"/g, '');
+  const counts = [';', ',', '\t'].map(d => [d, firstLine.split(d).length - 1]);
+  counts.sort((a, b) => b[1] - a[1]);
+  return counts[0][1] > 0 ? counts[0][0] : ';';
+}
+
+// Parser CSV (RFC 4180): pola w cudzysłowach, "" jako cudzysłów, nowe linie wewnątrz pól.
+function parseCSV(text, delim) {
+  const rows = [];
+  let row = [], field = '', quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else quoted = false; }
+      else field += c;
+    } else if (c === '"') quoted = true;
+    else if (c === delim) { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); rows.push(row); row = []; field = '';
+    } else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(f => f.trim() !== ''));
+}
+
+// Polski Excel często zapisuje CSV w Windows-1250 zamiast UTF-8.
+async function readTextFile(file) {
+  const buf = await file.arrayBuffer();
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^﻿/, ''); }
+  catch { return new TextDecoder('windows-1250').decode(buf); }
+}
+
+function signsFromCsv(text) {
+  const [head, ...rows] = parseCSV(text, detectDelimiter(text));
+  if (!head) throw new Error('Plik jest pusty.');
+  const idx = {};
+  head.forEach((h, i) => {
+    const col = CSV_COLS.find(([, , names]) => names.includes(plain(h)));
+    if (col && !(col[0] in idx)) idx[col[0]] = i;
+  });
+  if (!('room' in idx)) throw new Error('Brak kolumny „sala”. Nagłówki: ' + CSV_COLS.map(c => c[1]).join(';'));
+
+  const byRoom = new Map();
+  rows.forEach(r => {
+    const get = k => (k in idx ? clean(r[idx[k]]) : '');
+    const room = get('room');
+    if (!room) return;
+    if (!byRoom.has(room)) byRoom.set(room, { ...emptySign(), room, people: [] });
+    const sign = byRoom.get(room);
+    HEADER_KEYS.forEach(k => { if (!sign[k] && get(k)) sign[k] = get(k); });   // nagłówek z pierwszego niepustego wiersza
+    const p = Object.fromEntries(PERSON_KEYS.map(k => [k, get(k)]));
+    if (PERSON_KEYS.some(k => p[k])) sign.people.push(p);
+  });
+  return [...byRoom.values()];
+}
+
+function csvFromSigns(signs) {
+  const q = v => /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  const out = [CSV_COLS.map(c => c[1]).join(';')];
+  signs.forEach(s => {
+    const people = sortedPeople(s);
+    (people.length ? people : [emptyPerson()]).forEach(p => {
+      out.push(CSV_COLS.map(([k]) => q(clean(HEADER_KEYS.includes(k) ? s[k] : p[k]))).join(';'));
+    });
+  });
+  return '﻿' + out.join('\r\n') + '\r\n';     // BOM: Excel rozpozna UTF-8
+}
+
+async function importCsv(file) {
+  try {
+    const incoming = signsFromCsv(await readTextFile(file));
+    incoming.forEach(sign => {
+      const i = state.signs.findIndex(s => clean(s.room) === sign.room);
+      if (i >= 0) { sign.id = state.signs[i].id; state.signs[i] = sign; } else state.signs.push(sign);
+    });
+    state.current = incoming[0]?.id ?? state.current;
+    refreshDatalists(); renderEditor(); scheduleRender();
+    alert(`Wczytano ${incoming.length} tabliczek z pliku ${file.name}.`);
+  } catch (e) { alert('Nie udało się wczytać CSV: ' + e.message); }
+}
+
+function download(name, text, type) {
+  const a = el('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* =====================================================================
+   Czcionka: Aptos z systemu albo z pliku zapisanego w IndexedDB tej przeglądarki
+   ===================================================================== */
+const FILE_FAMILY = 'Aptos Plik';
+const fontDB = {
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('tabliczki', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('fonts', { keyPath: 'weight' });
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async run(mode, fn) {
+    try {
+      const db = await this.open();
+      return await new Promise((res, rej) => {
+        const tx = db.transaction('fonts', mode);
+        const q = fn(tx.objectStore('fonts'));
+        tx.oncomplete = () => res(q?.result);
+        tx.onerror = () => rej(tx.error);
+      });
+    } catch { return undefined; }
+  },
+  all() { return this.run('readonly', s => s.getAll()).then(r => r ?? []); },
+  put(rec) { return this.run('readwrite', s => s.put(rec)); },
+  clear() { return this.run('readwrite', s => s.clear()); },
+};
+let fileFaces = [];
+
+async function registerFileFonts() {
+  fileFaces.forEach(f => document.fonts.delete(f));
+  fileFaces = [];
+  for (const rec of await fontDB.all()) {
+    try {
+      const face = new FontFace(FILE_FAMILY, rec.buf, { weight: String(rec.weight) });
+      await face.load();
+      document.fonts.add(face);
+      fileFaces.push(face);
+    } catch { /* uszkodzony plik — pomijamy */ }
+  }
+}
+
+async function fontSource(weight) {
+  if (fileFaces.some(f => f.weight === String(weight))) return 'z pliku';
+  try {
+    const got = await document.fonts.load(`${weight} 12pt "Aptos System"`);
+    return got.length ? 'z systemu' : null;
+  } catch { return null; }
+}
+
+async function updateFontStatus() {
+  const [reg, bold] = await Promise.all([fontSource(400), fontSource(700)]);
+  const st = $('#fontStatus');
+  st.replaceChildren();
+  const item = (label, src) => {
+    const s = el('span', src ? 'status-ok' : 'status-bad', `${label}: ${src ?? 'brak'}`);
+    return s;
+  };
+  st.append(item('Aptos', reg), ' · ', item('Aptos Bold', bold));
+  renderPreview();      // inne metryki czcionki → ponowne dopasowanie
+}
+
+async function loadFontFiles(files) {
+  const skipped = [];
+  for (const file of files) {
+    const name = file.name.replace(/\.[^.]+$/, '');
+    if (/italic|light|semi|extra|black|narrow|display|mono|serif/i.test(name)) { skipped.push(file.name); continue; }
+    await fontDB.put({ weight: /bold/i.test(name) ? 700 : 400, name: file.name, buf: await file.arrayBuffer() });
+  }
+  await registerFileFonts();
+  await updateFontStatus();
+  if (skipped.length) alert('Pominięto (potrzebne są tylko Regular i Bold): ' + skipped.join(', '));
+}
+
+/* =====================================================================
+   Zdarzenia
+   ===================================================================== */
+function setupDrop(dropEl, inputEl, handler) {
+  inputEl.addEventListener('change', () => { if (inputEl.files.length) handler([...inputEl.files]); inputEl.value = ''; });
+  dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.classList.add('over'); });
+  dropEl.addEventListener('dragleave', () => dropEl.classList.remove('over'));
+  dropEl.addEventListener('drop', e => { e.preventDefault(); dropEl.classList.remove('over'); if (e.dataTransfer.files.length) handler([...e.dataTransfer.files]); });
+}
+
+setupDrop($('#drop'), $('#fileCsv'), files => importCsv(files[0]));
+setupDrop($('#dropFont'), $('#fileFont'), loadFontFiles);
+$('#btnFontClear').addEventListener('click', async () => { await fontDB.clear(); await registerFileFonts(); updateFontStatus(); });
+
+$('#btnNew').addEventListener('click', () => {
+  const s = emptySign(currentSign() ?? {});        // nagłówek kopiowany z bieżącej tabliczki
+  state.signs.push(s); state.current = s.id;
+  renderEditor(); scheduleRender();
+});
+$('#btnDup').addEventListener('click', () => {
+  const cur = currentSign(); if (!cur) return;
+  const s = { ...structuredClone(cur), id: newId() };
+  state.signs.splice(state.signs.indexOf(cur) + 1, 0, s); state.current = s.id;
+  renderEditor(); scheduleRender();
+});
+$('#btnDel').addEventListener('click', () => {
+  const cur = currentSign(); if (!cur) return;
+  if (!confirm(`Usunąć tabliczkę ${clean(cur.room) || '(bez numeru)'}?`)) return;
+  const i = state.signs.indexOf(cur);
+  state.signs.splice(i, 1);
+  state.current = state.signs[Math.min(i, state.signs.length - 1)]?.id ?? null;
+  renderEditor(); scheduleRender();
+});
+$('#btnAll').addEventListener('click', () => { state.signs.forEach(s => { s.print = true; }); scheduleRender(); });
+$('#btnNone').addEventListener('click', () => { state.signs.forEach(s => { s.print = false; }); scheduleRender(); });
+$('#btnExport').addEventListener('click', () => {
+  if (!state.signs.length) return alert('Brak tabliczek do eksportu.');
+  download(`tabliczki-${new Date().toISOString().slice(0, 10)}.csv`, csvFromSigns(state.signs), 'text/csv;charset=utf-8');
+});
+$('#btnPrint').addEventListener('click', () => {
+  if (!state.signs.some(s => s.print)) return alert('Żadna tabliczka nie jest zaznaczona do druku.');
+  renderPreview();
+  window.print();
+});
+
+document.querySelectorAll('[data-print]').forEach(inp => {
+  const key = inp.dataset.print;
+  if (inp.type === 'checkbox') inp.checked = state.print[key]; else inp.value = state.print[key];
+  inp.addEventListener('change', () => {
+    state.print[key] = inp.type === 'checkbox' ? inp.checked : inp.value;
+    $('#marksCheck').hidden = state.print.paper !== 'a4';
+    scheduleRender();
+  });
+});
+$('#marksCheck').hidden = state.print.paper !== 'a4';
+
+$('#zoomSel').value = String(state.zoom);
+$('#zoomSel').addEventListener('change', e => { state.zoom = +e.target.value; $('#sheets').style.zoom = state.zoom; save(); });
+
+/* =====================================================================
+   Start
+   ===================================================================== */
+if (!currentSign()) state.current = state.signs[0]?.id ?? null;
+refreshDatalists();
+renderEditor();
+renderPreview();
+registerFileFonts().then(updateFontStatus);
+document.fonts.addEventListener?.('loadingdone', () => renderPreview());
+</script>
+</body>
+</html>
