@@ -91,7 +91,8 @@
   .sign .zone { display: flex; }
   .sign .zone.center { align-items: center; }
   .sign .zone-in { width: 100%; text-align: center; }
-  .sign .header .l, .sign .name .l { white-space: pre-line; text-wrap: balance; overflow-wrap: anywhere; }
+  /* Łamanie tylko między słowami: za długie słowo zmniejsza cały blok (fitBox), zamiast dzielić się w środku. */
+  .sign .header .l, .sign .name .l { white-space: pre-line; text-wrap: balance; }
   .sign .people .l { white-space: nowrap; }
   .sign .room-no { white-space: nowrap; text-align: right; }
   .sign .stripes { display: block; }
@@ -243,7 +244,7 @@ const FORMATS = {
     aliases: ['a5pomieszczenie', 'a5pom', 'a5lab'],
     ...A5_FRAME,
     header: { ...A5_FRAME.header, fields: ['faculty', 'unit'] },
-    name: { ...A5_FRAME.middle, side: A5_FRAME.header.side, size: 36, upper: true, bold: true },
+    name: { ...A5_FRAME.middle, side: A5_FRAME.header.side, size: 36, upper: true, bold: true, maxLines: 3 },
   },
 
   /* Mała tabliczka na laboratoria i składy: bez osób i bez pracowni,
@@ -262,7 +263,7 @@ const FORMATS = {
       faculty: { size: 10, upper: true, gapAfter: 1.5 },
       unit:    { size: 13, upper: true, bold: true },
     },
-    name:   { top: 44, bottom: 88, side: 8, size: 30, upper: true, bold: true },  // nazwa pomieszczenia
+    name:   { top: 44, bottom: 88, side: 8, size: 30, upper: true, bold: true, maxLines: 2 },  // nazwa pomieszczenia
     stripes: { h: 10, color: BRAND_BLUE },
   },
 };
@@ -413,7 +414,7 @@ function buildSign(sign) {
   root.classList.toggle('outlined', state.print.outline);
   root.classList.toggle('current', sign.id === state.current);
   const fits = [];
-  const addZone = (key, box, inner) => { root.append(box); fits.push([key, box, inner]); };
+  const addZone = (key, box, inner, maxLines) => { root.append(box); fits.push([key, box, inner, maxLines]); };
 
   if (f.logo) {
     const logo = el('img', 'logo'); logo.src = LOGO_UG; logo.alt = '';
@@ -454,17 +455,28 @@ function buildSign(sign) {
   }
 
   // Nazwa pomieszczenia (mała tabliczka)
-  if (f.name && clean(sign.name)) addZone('name', ...zone(f, f.name, 'name', [textLine(clean(sign.name), f.name)]));
+  if (f.name && clean(sign.name)) addZone('name', ...zone(f, f.name, 'name', [textLine(clean(sign.name), f.name)]), f.name.maxLines);
 
   if (f.stripes) root.append(stripesSvg(f));
   return { root, fits };
 }
 
-/* Zmniejsza blok równomiernie (zmienna --k), aż zmieści się w swojej strefie. */
-function fitBox(box, inner) {
+/* Liczba wierszy, na które przeglądarka złamała tekst elementu. */
+function lineCount(node) {
+  const r = document.createRange();
+  r.selectNodeContents(node);
+  const tops = [...r.getClientRects()].map(x => x.top).sort((a, b) => a - b);
+  return tops.filter((t, i) => i === 0 || t - tops[i - 1] > 1).length;
+}
+
+/* Zmniejsza blok równomiernie (zmienna --k), aż zmieści się w swojej strefie:
+   wysokość, szerokość (słowa nie są dzielone, więc za długie słowo też zmniejsza)
+   i opcjonalnie limit wierszy. */
+function fitBox(box, inner, maxLines) {
   const ok = k => {
     inner.style.setProperty('--k', k);
-    return inner.offsetHeight <= box.clientHeight + 0.5 && inner.scrollWidth <= inner.clientWidth + 0.5;
+    return inner.offsetHeight <= box.clientHeight + 0.5 && inner.scrollWidth <= inner.clientWidth + 0.5
+      && (!maxLines || lineCount(inner) <= maxLines);
   };
   if (ok(1)) return 1;
   let lo = 0.2, hi = 1;
@@ -566,7 +578,7 @@ function renderPreview() {
       place(root, { x: rects[i].x, y: rects[i].y });
       root.addEventListener('click', () => selectSign(sign.id));
       sheet.append(root);
-      fitResults.set(sign.id, Object.fromEntries(fits.map(([key, box, inner]) => [key, fitBox(box, inner)])));
+      fitResults.set(sign.id, Object.fromEntries(fits.map(([key, box, inner, maxLines]) => [key, fitBox(box, inner, maxLines)])));
     });
     if (state.print.marks && state.print.paper === 'a4') { const m = cropMarks(paper, rects); if (m) sheet.append(m); }
   });
