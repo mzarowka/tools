@@ -115,7 +115,10 @@ raz wczytać pliki.
 
 ## Grafika
 
-- Logo UG to PNG wycięty z wzoru w PowerPoincie (ok. 200 dpi w docelowym rozmiarze A5).
+- Logo UG jest wektorowe, z oficjalnego pliku `UG_logo_CMYK_podstawowy_pozytyw_PL.pdf`
+  (przycięte do kształtów, wbudowane w `index.html`). Ma jeden pełny kolor, niebieski UG,
+  bez odcieni pośrednich. Wcześniejsze logo z PNG dawało na wydruku żółtą obwódkę, bo
+  drukarka składała jasne odcienie na krawędziach z kilku tuszy.
 - Paski są przerysowane wektorowo według wzoru, więc drukują się ostro.
 
 ## Rozmiary
@@ -132,4 +135,3 @@ pomieszczenia, paski). Kolejny rozmiar to kolejny wpis, bez zmian w reszcie kodu
 ## Plany
 
 - Potwierdzić wymiar małej tabliczki wydrukiem próbnym w ramce.
-- Logo w wersji wektorowej, gdy będzie dostępne.
