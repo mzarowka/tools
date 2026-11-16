@@ -224,6 +224,7 @@
       </label>
     </div>
     <label class="check"><input type="checkbox" data-bind="text.bold"> Pogrubiona pierwsza linia</label>
+    <label class="check"><input type="checkbox" data-bind="text.breakLast"> Łam przed ostatnim „_” (GKUT_25_02_B / 000-001)</label>
     <p class="hint">Zbyt długi tekst jest automatycznie zmniejszany, aż do czcionki minimalnej. Etykiety, które i tak się nie mieszczą, są w podglądzie podświetlone na czerwono.</p>
   </section>
 
@@ -266,6 +267,13 @@ const BUILTIN_PRESETS = [
     name: '5×13 · 38×21,2 mm · bez odstępów',
     sheet: { cols: 5, rows: 13, mt: 10.7, mb: 10.7, ml: 10, mr: 10, gx: 0, gy: 0 },
     text: { font: 9, minFont: 5, pad: 1, align: 'center', bold: true },
+  },
+  {
+    // Ten sam arkusz co wyżej, napis w dwóch liniach i 4 mm marginesu wewnątrz, żeby lekko krzywy wydruk
+    // nie wychodził poza etykietę. Używany od 2026-11-12 (próbki GKUT_25_02_B).
+    name: '5×13 · 38×21,2 mm · bez odstępów · 2 linie, margines 4 mm',
+    sheet: { cols: 5, rows: 13, mt: 10.7, mb: 10.7, ml: 10, mr: 10, gx: 0, gy: 0 },
+    text: { font: 9, minFont: 5, pad: 4, align: 'center', bold: true, breakLast: true },
   },
   {
     name: 'Avery L7160 · 3×7 · 63,5×38,1 mm (przykład)',
@@ -463,6 +471,11 @@ function currentLabels() {
 const $ = id => document.getElementById(id);
 
 function labelHtml(text) {
+  // Łamanie przed ostatnim "_": GKUT_25_02_B_000-001 -> GKUT_25_02_B / 000-001 (gdy tekst nie ma własnych linii).
+  if (state.text.breakLast && !text.includes('\n')) {
+    const i = text.lastIndexOf('_');
+    if (i > 0 && i < text.length - 1) text = text.slice(0, i) + '\n' + text.slice(i + 1);
+  }
   const lines = text.split('\n').map(escapeHtml);
   if (state.text.bold) lines[0] = '<b>' + lines[0] + '</b>';
   return lines.join('\n');
