@@ -5,7 +5,8 @@ open it in a browser (Chrome or Edge recommended), nothing to install, works off
 and images never leave the computer.
 
 The full design (three modules, Method C, file formats) is in [DESIGN.md](DESIGN.md).
-**Version 2** contains the project setup, Module 1 (blind counting), Module 2 (Method C) and image export.
+**Version 3** contains the project setup, Module 1 (blind counting), Module 2 (Method C), Module 3 step 1
+(cracks and final varve depths) and image export.
 
 ## Workflow
 
@@ -61,6 +62,19 @@ The full design (three modules, Method C, file formats) is in [DESIGN.md](DESIGN
 5. **Save** → `ZAB-12.chronology.json` (matching, edits and settings).
    **Export CSV** → one row per group: varve number, depths, cumulative +/− uncertainty.
 
+### 5. Final depths (Module 3, step 1)
+
+1. **3 Final → Open chronology…** (the file saved in 2 Decide), or **Take from 2 Decide** in
+   the same session. The counts files are not needed.
+2. In each section, where a crack crosses the path, click its **upper edge** and then its
+   **lower edge**. The crack width is left out of the depths; drag an edge to adjust it,
+   right-click or Delete to remove it.
+3. Tick **All cracks on the path are marked in this section** when a section is done
+   (also when it has no cracks).
+4. **Save** → `ZAB-12.thickness.json` (Module 3 file).
+   **Export varves CSV** → one row per varve: varve number, top and bottom core depth
+   (crack-corrected), cumulative +/− uncertainty. **Export cracks CSV** lists the cracks.
+
 ### Export an image
 
 **Export…** (top right, or <kbd>E</kbd>) saves the current section with whatever is marked at
@@ -84,4 +98,4 @@ later, in Module 3.
 
 ## Not yet
 
-- Module 3: cracks, final varve depths, thickness (versions 3–4).
+- Module 3 step 2: varve thickness from traced horizons (version 4).

@@ -1,6 +1,6 @@
 # Varve counter — design
 
-Status: **version 2 implemented** (project setup, Module 1, Module 2 and image export) in [`index.html`](index.html). Module 3 is designed but not built yet.
+Status: **version 3 implemented** (project setup, Module 1, Module 2, Module 3 step 1 and image export) in [`index.html`](index.html). Module 3 step 2 (thickness) is designed but not built yet.
 
 A browser tool for counting varves on scanned thin sections, building a varve
 chronology with uncertainty (Method C of Żarczyński, Tylmann & Goslar 2018,
@@ -273,6 +273,22 @@ is the slow, detailed work and can be done later, or only for some intervals.
    varve number (counted from the top of the record), top and bottom core
    depth, and the cumulative +/− uncertainty from Module 2.
 
+Implementation notes (version 3):
+
+- Module 3 reads the **chronology file** only (no counts needed). When saved,
+  the chronology stores for every group its position on the path (`s_px`) and
+  the number of counters who marked it (`n`), and for every section the number
+  of counters (`n_counters`). In the same session the chronology can also be
+  taken directly from “2 Decide”.
+- The decision is re-derived from `n` and `n_counters` with the same majority
+  rule, so the varve numbers and uncertainties are identical to Module 2.
+- A crack is stored as its two clicked edge points; their positions on the
+  path are recomputed from the current path. Overlapping cracks are refused.
+- Each section has a flag **“all cracks on the path are marked”**. It is
+  exported as `crack_corrected`, so a section without cracks is distinguishable
+  from a section that was not checked.
+- If the path of a section changed after the matching, a warning is shown.
+
 The tool works with **varve numbers only**. It does not convert them to
 calendar ages, so floating chronologies need no special handling. Anchoring
 to a year (coring year, tephra, etc.) and the year convention are left to the
@@ -413,7 +429,7 @@ small, and keeps counters independent.
 |---|---|---|
 | `counts.csv` | click | `project, section, person, seq, boundary_id, segment, s_mm, core_depth_mm, x_px, y_px` |
 | `chronology.csv` | matched group | `project, section, group_id, varve_no, included, status, n_agree, n_counters, persons, s_mm, core_depth_mm, top_mm, bottom_mm, unc_pos_cum, unc_neg_cum, checked, manual` |
-| `varves.csv` | accepted varve (final) | `project, section, varve_no, top_depth_mm, bottom_depth_mm, unc_pos_cum, unc_neg_cum, crack_corrected` |
+| `varves.csv` | accepted varve (final) | `project, section, varve_no, status, top_depth_mm, bottom_depth_mm, bottom_depth_uncorrected_mm, unc_pos_cum, unc_neg_cum, crack_corrected` |
 | `cracks.csv` | crack | `project, section, crack_id, crosses_path, s_upper_mm, s_lower_mm, width_mm, core_depth_mm` |
 | `thickness.csv` | measurement | `project, section, varve_no, method, position_no, x_px, thickness_px, crack_px, thickness_mm, thickness_corr_mm, measured_by` |
 
@@ -492,7 +508,7 @@ written; every option below updates it.
    modules add their overlays to the same export. *(Done.)*
 2. **Version 2:** Module 2 (matching, review, Method C, chronology CSV). *(Done.)*
 3. **Version 3:** Module 3 step 1 (cracks on the path, final varve depths,
-   varves and cracks CSV).
+   varves and cracks CSV). *(Done.)*
 4. **Version 4:** Module 3 step 2 (horizons, quick lines, thickness CSV).
 
 ## 13. Open questions
