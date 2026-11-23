@@ -1,0 +1,2088 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Varve counter</title>
+<style>
+  :root {
+    --bg: #e9edf0; --panel: #fff; --ink: #1d2327; --muted: #5f6b73;
+    --line: #d5dbe0; --accent: #1f6feb; --accent-ink: #fff;
+    --warn-bg: #fff4d6; --warn-ink: #6b4700; --err: #c62828; --ok: #1b7f3b;
+    --stage: #2b2f33;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; display: flex; height: 100vh; overflow: hidden;
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); background: var(--bg);
+  }
+
+  /* ---------- panel ---------- */
+  .panel { width: 360px; flex: none; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); }
+  .panel-top { position: sticky; top: 0; z-index: 2; background: var(--panel); padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+  .panel-top h1 { font-size: 17px; margin: 0 0 8px; display: flex; align-items: baseline; gap: 8px; }
+  .panel-top h1 small { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .panel section { padding: 11px 14px 13px; border-bottom: 1px solid var(--line); }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 9px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+  .field { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+  .field > span { color: var(--muted); }
+  .val { padding: 5px 0; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 8px; }
+  .mt { margin-top: 8px; }
+  input[type=number], input[type=text], select {
+    font: inherit; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; width: 100%; background: #fff; color: var(--ink);
+  }
+  button, label.btn {
+    font: inherit; padding: 5px 10px; border: 1px solid var(--line); border-radius: 5px; background: #f6f8fa; color: var(--ink); cursor: pointer; display: inline-block;
+  }
+  button:hover:not(:disabled), label.btn:hover { background: #eef1f4; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button.small { padding: 2px 7px; font-size: 12px; }
+  button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+  .muted { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+  .tabs { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-top: 10px; }
+  .tabs button { flex: 1; border: 0; border-radius: 0; background: #f6f8fa; padding: 6px 2px; font-size: 13px; }
+  .tabs button + button { border-left: 1px solid var(--line); }
+  .tabs button.active { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+  .list { display: flex; flex-direction: column; gap: 5px; margin: 4px 0 8px; }
+  .item { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: #fafbfc; font-size: 13px; }
+  .item.sel { border-color: var(--accent); background: #eef4ff; }
+  .item .top { display: flex; align-items: center; gap: 6px; }
+  .item .top .name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .item .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .person { display: grid; grid-template-columns: 80px 1fr auto; gap: 6px; align-items: center; }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 9px; background: #e7ebef; color: var(--muted); white-space: nowrap; }
+  .tag.ok { background: #dff3e5; color: var(--ok); }
+  .tag.warn { background: var(--warn-bg); color: var(--warn-ink); }
+
+  .msg { font-size: 12.5px; padding: 6px 9px; border-radius: 6px; margin-top: 6px; }
+  .msg.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .msg.err { background: #fde7e7; color: var(--err); }
+  .msg.ok { background: #e3f4e8; color: var(--ok); }
+  .box { border: 1px dashed var(--line); border-radius: 6px; padding: 8px; margin-top: 8px; }
+
+  .stats { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13px; margin-top: 10px; }
+  .stats dt { color: var(--muted); }
+  .stats dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .keys { font-size: 12.5px; border-collapse: collapse; width: 100%; }
+  .keys td { padding: 2px 4px; vertical-align: top; }
+  .keys td:first-child { white-space: nowrap; color: var(--muted); }
+  kbd { font: 11.5px ui-monospace, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: #fafbfc; color: var(--ink); }
+
+  /* ---------- stage ---------- */
+  .stage { flex: 1; position: relative; background: var(--stage); min-width: 0; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .toolbar {
+    position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; align-items: center;
+    background: rgba(255,255,255,.94); border-radius: 7px; padding: 4px 6px; box-shadow: 0 1px 4px rgba(0,0,0,.3); font-size: 13px;
+  }
+  .toolbar button { padding: 2px 8px; }
+  .toolbar label { display: flex; align-items: center; gap: 3px; margin-left: 4px; }
+  .toolbar input[type=range] { width: 70px; }
+  #zPct { min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; }
+  .status {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 10px; font-size: 12.5px; color: #e8ecef;
+    background: rgba(0,0,0,.55); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .empty {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;
+    color: #c9d0d6; padding: 40px; font-size: 15px; pointer-events: none;
+  }
+  .toast {
+    position: absolute; left: 50%; top: 14px; transform: translate(-50%, -12px); opacity: 0; pointer-events: none;
+    background: #1d2327; color: #fff; padding: 8px 14px; border-radius: 6px; font-size: 13.5px; max-width: 70%;
+    box-shadow: 0 2px 10px rgba(0,0,0,.35); transition: opacity .15s, transform .15s;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.err { background: var(--err); }
+  .busy { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); color: #fff; font-size: 15px; }
+</style>
+</head>
+<body>
+
+<aside class="panel">
+  <div class="panel-top">
+    <h1>Varve counter <small>v1 · setup + counting</small></h1>
+    <label class="field"><span>I am</span><select id="personSel"></select></label>
+    <div class="tabs" id="tabs">
+      <button data-tab="project" class="active">Project</button>
+      <button data-tab="setup">Setup</button>
+      <button data-tab="count">1 Count</button>
+      <button data-tab="decide" disabled title="Module 2 (Method C) comes in version 2">2 Decide</button>
+      <button data-tab="final" disabled title="Module 3 comes in versions 3–4">3 Final</button>
+    </div>
+  </div>
+
+  <!-- ===== Project ===== -->
+  <div id="tab-project" class="tab">
+    <section>
+      <h2>Project</h2>
+      <div class="row">
+        <button id="btnNew">New</button>
+        <button id="btnOpen">Open…</button>
+        <button id="btnSave">Save</button>
+        <button id="btnSaveAs">Save as…</button>
+      </div>
+      <div id="projBody">
+        <label class="field mt"><span>Project name (composite profile, e.g. ZAB-12)</span><input id="projName" type="text"></label>
+        <p class="hint" id="projInfo"></p>
+      </div>
+    </section>
+    <div id="projBody2">
+      <section>
+        <h2>People</h2>
+        <div id="peopleList" class="list"></div>
+        <button id="btnAddPerson" class="small">+ Add person</button>
+        <p class="hint">Short ids (e.g. P1, MZ) are written into every file and export.</p>
+      </section>
+      <section>
+        <h2>Sections <span class="muted">top → bottom</span></h2>
+        <div class="row">
+          <label class="btn">+ Add sections…<input id="addImgs" type="file" multiple accept=".tif,.tiff,.bmp,.png,.jpg,.jpeg" hidden></label>
+          <label class="btn" title="Re-attach images after opening a project">Load images…<input id="linkImgs" type="file" multiple accept=".tif,.tiff,.bmp,.png,.jpg,.jpeg" hidden></label>
+        </div>
+        <p class="hint">One image per thin section: TIFF (uncompressed, LZW, Deflate, PackBits), BMP, PNG or JPEG. Images stay on this computer; the project stores only their names and SHA-256 hashes.</p>
+        <div id="secList" class="list"></div>
+        <div id="contin"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ===== Setup ===== -->
+  <div id="tab-setup" class="tab" hidden>
+    <section>
+      <label class="field"><span>Section</span><select id="secSelSetup"></select></label>
+    </section>
+    <div id="setupBody">
+      <section>
+        <h2>Section</h2>
+        <label class="field"><span>Section id</span><input id="secIdIn" type="text"></label>
+        <p class="hint" id="secImgInfo"></p>
+      </section>
+      <section>
+        <h2>Resolution</h2>
+        <div class="grid2">
+          <label class="field"><span>DPI</span><input id="secDpi" type="number" step="any" min="1"></label>
+          <div class="field"><span>Source</span><div id="secDpiSrc" class="val"></div></div>
+        </div>
+        <div class="row mt"><button id="btnScale">Calibrate from a scale bar…</button></div>
+        <div id="scaleBox" class="box" hidden>
+          <p class="hint" style="margin-top:0">Click both ends of the scale bar on the image.</p>
+          <div class="grid2 mt">
+            <div class="field"><span>Measured</span><div id="scalePx" class="val">—</div></div>
+            <label class="field"><span>Known length (mm)</span><input id="scaleMm" type="number" step="any" min="0"></label>
+          </div>
+          <div class="row mt"><button id="scaleApply" class="accent">Apply</button><button id="scaleCancel">Cancel</button></div>
+        </div>
+      </section>
+      <section>
+        <h2>Path</h2>
+        <div class="row">
+          <button data-tool="edit">Move / edit</button>
+          <button data-tool="draw">Draw segment</button>
+        </div>
+        <p class="hint" id="toolHint"></p>
+        <label class="check"><input type="checkbox" id="snapGuide" checked> Snap a new segment's start to the joint guide</label>
+        <div id="segList" class="list"></div>
+        <div id="setupWarn"></div>
+      </section>
+      <section>
+        <h2>Core depth of the path</h2>
+        <div class="grid2">
+          <label class="field"><span>Path start (top), cm</span><input id="ancTop" type="number" step="any"></label>
+          <label class="field"><span>Path end (base), cm</span><input id="ancBot" type="number" step="any"></label>
+        </div>
+        <dl id="pathStats" class="stats"></dl>
+      </section>
+    </div>
+  </div>
+
+  <!-- ===== Count ===== -->
+  <div id="tab-count" class="tab" hidden>
+    <section>
+      <h2>My counts</h2>
+      <div class="row">
+        <button id="cNew">New count</button>
+        <button id="cOpen">Open…</button>
+        <button id="cSave">Save</button>
+        <button id="cCsv">Export CSV</button>
+      </div>
+      <p class="hint" id="cInfo"></p>
+    </section>
+    <section>
+      <label class="field"><span>Section</span><select id="secSelCount"></select></label>
+      <dl id="countStats" class="stats"></dl>
+    </section>
+    <section>
+      <h2>Display</h2>
+      <label class="check"><input type="checkbox" id="showNums" checked> Number the boundaries</label>
+    </section>
+    <section>
+      <h2>Mouse and keys</h2>
+      <table class="keys">
+        <tr><td>Click</td><td>add a boundary (snaps to the path)</td></tr>
+        <tr><td>Drag mark</td><td>move a boundary</td></tr>
+        <tr><td>Right-click mark</td><td>delete it (or <kbd>Del</kbd> on the selected one)</td></tr>
+        <tr><td>Drag · wheel</td><td>pan · zoom</td></tr>
+        <tr><td><kbd>D</kbd> / <kbd>A</kbd></td><td>move along the path, deeper / back</td></tr>
+        <tr><td><kbd>F</kbd> <kbd>R</kbd> <kbd>N</kbd></td><td>fit · rotate view · numbers</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>undo / redo</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>save</td></tr>
+      </table>
+      <p class="hint">Counting is blind: only your own boundaries are shown.</p>
+    </section>
+  </div>
+</aside>
+
+<main class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <div class="empty" id="empty"></div>
+  <div class="toolbar">
+    <button id="zFit" title="Fit (F)">Fit</button>
+    <button id="zOut" title="Zoom out (−)">−</button>
+    <span id="zPct">—</span>
+    <button id="zIn" title="Zoom in (+)">+</button>
+    <button id="zRot" title="Rotate the view by 90° (R)">⟳</button>
+    <label title="Brightness">☀<input id="fB" type="range" min="40" max="250" value="100"></label>
+    <label title="Contrast">◐<input id="fC" type="range" min="40" max="300" value="100"></label>
+    <button id="fReset" title="Reset brightness and contrast">↺</button>
+  </div>
+  <div class="status" id="status">&nbsp;</div>
+  <div class="toast" id="toast"></div>
+  <div class="busy" id="busy" hidden></div>
+</main>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   Varve counter — version 1 (project setup + Module 1, blind counting)
+   Design: DESIGN.md in this folder.
+   ===================================================================== */
+
+const APP = 'varves-counter@1';
+const SCHEMA_PROJECT = 'varves/project@1';
+const SCHEMA_COUNTS = 'varves/counts@1';
+const MM_PER_IN = 25.4;
+const EPS_MM = 1e-6;
+const SEG_COLORS = ['#00e5ff', '#ffd400'];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nowISO = () => new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+const round = (v, d) => { const f = 10 ** d; return Math.round(v * f) / f; };
+const fmt = (v, d) => (v == null || !isFinite(v)) ? '—' : v.toFixed(d);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
+  del(k) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } },
+};
+
+/* ---------------------------------------------------------------------
+   State
+   --------------------------------------------------------------------- */
+const state = {
+  project: null, projectHandle: null, projectDirty: false,
+  counts: null, countsHandle: null, countsDirty: false,
+  person: null,
+  secId: null,
+  images: new Map(),          // section id -> { bitmap, width, height, name, sha256 }
+  views: new Map(),           // section id -> saved view
+  tab: 'project',
+  tool: 'edit',               // setup: edit | draw | scale
+  draft: null,                // points of a segment being drawn
+  scalePts: null,             // scale-bar calibration points
+  selB: null,                 // selected boundary id (count)
+  selV: null,                 // selected vertex {seg, vi} (setup)
+  activeSeg: 0,
+  cursor: null,               // last cursor position, image px
+  showNums: true,
+  filter: { b: 100, c: 100 },
+};
+const view = { scale: 1, rot: 0, tx: 0, ty: 0 };
+
+/* ---------------------------------------------------------------------
+   Small UI helpers
+   --------------------------------------------------------------------- */
+let toastTimer;
+function toast(msg, kind = '') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + kind;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, kind === 'err' ? 6000 : 3000);
+}
+function busy(msg) { const b = $('busy'); b.hidden = !msg; b.textContent = msg || ''; }
+
+function download(text, name, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/* Save text: in place (File System Access handle), Save As picker, or download. */
+async function saveText(text, handle, suggestedName) {
+  const write = async h => {
+    if (h.queryPermission && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+      if ((await h.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('No permission to write the file');
+    }
+    const w = await h.createWritable(); await w.write(text); await w.close();
+  };
+  if (handle) { await write(handle); return { ok: true, handle, how: 'saved' }; }
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await window.showSaveFilePicker({ suggestedName, types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
+      await write(h);
+      return { ok: true, handle: h, how: 'saved' };
+    } catch (e) {
+      if (e.name === 'AbortError') return { ok: false };
+      throw e;
+    }
+  }
+  download(text, suggestedName, 'application/json');
+  return { ok: true, handle: null, how: 'downloaded' };
+}
+
+/* Pick one JSON file; returns { file, handle } or null. */
+async function pickJSON() {
+  if (window.showOpenFilePicker) {
+    try {
+      const [h] = await window.showOpenFilePicker({ types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
+      return { file: await h.getFile(), handle: h };
+    } catch (e) {
+      if (e.name === 'AbortError') return null;
+      throw e;
+    }
+  }
+  return new Promise(resolve => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.json,application/json';
+    inp.addEventListener('change', () => resolve(inp.files[0] ? { file: inp.files[0], handle: null } : null));
+    inp.addEventListener('cancel', () => resolve(null));
+    inp.click();
+  });
+}
+
+/* ---------------------------------------------------------------------
+   SHA-256 (Web Crypto, with a plain-JS fallback for insecure contexts)
+   --------------------------------------------------------------------- */
+const toHex = buf => Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
+
+async function sha256Hex(buf) {
+  if (globalThis.crypto && crypto.subtle) {
+    try { return toHex(await crypto.subtle.digest('SHA-256', buf)); } catch { /* fall back */ }
+  }
+  return sha256js(new Uint8Array(buf));
+}
+
+function sha256js(bytes) {
+  const K = new Uint32Array([
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2]);
+  const H = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
+  const n = bytes.length;
+  const padded = new Uint8Array(((n + 9 + 63) >> 6) << 6);
+  padded.set(bytes); padded[n] = 0x80;
+  const dv = new DataView(padded.buffer);
+  dv.setUint32(padded.length - 8, Math.floor(n / 0x20000000));
+  dv.setUint32(padded.length - 4, (n << 3) >>> 0);
+  const W = new Uint32Array(64);
+  const ror = (x, r) => (x >>> r) | (x << (32 - r));
+  for (let off = 0; off < padded.length; off += 64) {
+    for (let i = 0; i < 16; i++) W[i] = dv.getUint32(off + i * 4);
+    for (let i = 16; i < 64; i++) {
+      const s0 = ror(W[i - 15], 7) ^ ror(W[i - 15], 18) ^ (W[i - 15] >>> 3);
+      const s1 = ror(W[i - 2], 17) ^ ror(W[i - 2], 19) ^ (W[i - 2] >>> 10);
+      W[i] = (W[i - 16] + s0 + W[i - 7] + s1) | 0;
+    }
+    let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+    for (let i = 0; i < 64; i++) {
+      const S1 = ror(e, 6) ^ ror(e, 11) ^ ror(e, 25);
+      const t1 = (h + S1 + ((e & f) ^ (~e & g)) + K[i] + W[i]) | 0;
+      const S0 = ror(a, 2) ^ ror(a, 13) ^ ror(a, 22);
+      const t2 = (S0 + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    H[0] += a; H[1] += b; H[2] += c; H[3] += d; H[4] += e; H[5] += f; H[6] += g; H[7] += h;
+  }
+  return Array.from(H, x => x.toString(16).padStart(8, '0')).join('');
+}
+
+/* ---------------------------------------------------------------------
+   Image loading: TIFF (own decoder), BMP / PNG / JPEG (browser) + DPI
+   --------------------------------------------------------------------- */
+function lzwDecode(src, expected) {
+  const out = new Uint8Array(expected);
+  const prefix = new Int32Array(4096), suffix = new Uint8Array(4096), first = new Uint8Array(4096), len = new Int32Array(4096);
+  for (let i = 0; i < 256; i++) { prefix[i] = -1; suffix[i] = i; first[i] = i; len[i] = 1; }
+  let op = 0, bitPos = 0, codeLen = 9, next = 258, old = -1;
+  const totalBits = src.length * 8;
+  const emit = code => {
+    const l = len[code];
+    let c = code;
+    for (let i = l - 1; i >= 0; i--) { if (op + i < expected) out[op + i] = suffix[c]; c = prefix[c]; }
+    op += l;
+  };
+  const add = (pre, ch) => {
+    if (next >= 4096) return;
+    prefix[next] = pre; suffix[next] = ch; first[next] = first[pre]; len[next] = len[pre] + 1; next++;
+  };
+  while (op < expected) {
+    if (bitPos + codeLen > totalBits) break;
+    const byte = bitPos >> 3;
+    const win = (src[byte] << 16) | ((src[byte + 1] || 0) << 8) | (src[byte + 2] || 0);
+    const code = (win >> (24 - (bitPos & 7) - codeLen)) & ((1 << codeLen) - 1);
+    bitPos += codeLen;
+    if (code === 257) break;
+    if (code === 256) { codeLen = 9; next = 258; old = -1; continue; }
+    if (old === -1) { emit(code); old = code; continue; }
+    if (code < next) { emit(code); add(old, first[code]); }
+    else { add(old, first[old]); emit(next - 1); }
+    old = code;
+    if (next >= (1 << codeLen) - 1 && codeLen < 12) codeLen++;
+  }
+  return out;
+}
+
+function packbitsDecode(src, expected) {
+  const out = new Uint8Array(expected);
+  let i = 0, o = 0;
+  while (i < src.length && o < expected) {
+    const n = (src[i++] << 24) >> 24;
+    if (n >= 0) { for (let k = 0; k <= n && o < expected; k++) out[o++] = src[i++]; }
+    else if (n !== -128) { const v = src[i++]; for (let k = 0; k < 1 - n && o < expected; k++) out[o++] = v; }
+  }
+  return out;
+}
+
+async function inflate(src) {
+  const ds = new DecompressionStream('deflate');
+  const buf = await new Response(new Blob([src]).stream().pipeThrough(ds)).arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+const TIFF_TYPE_SIZE = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8 };
+const TIFF_TAGS = new Set([256, 257, 258, 259, 262, 273, 277, 278, 279, 282, 283, 284, 296, 317, 320, 322, 323, 324, 325, 339]);
+
+async function decodeTIFF(buf) {
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  const le = u8[0] === 0x49;
+  const magic = dv.getUint16(2, le);
+  if (magic === 43) throw new Error('BigTIFF is not supported');
+  if (magic !== 42) throw new Error('Not a TIFF file');
+  const ifd = dv.getUint32(4, le);
+  const n = dv.getUint16(ifd, le);
+  const tags = {};
+  for (let i = 0; i < n; i++) {
+    const e = ifd + 2 + i * 12;
+    const tag = dv.getUint16(e, le), type = dv.getUint16(e + 2, le), cnt = dv.getUint32(e + 4, le);
+    const sz = TIFF_TYPE_SIZE[type];
+    if (!sz || !TIFF_TAGS.has(tag)) continue;
+    const off = sz * cnt <= 4 ? e + 8 : dv.getUint32(e + 8, le);
+    const vals = new Array(cnt);
+    for (let j = 0; j < cnt; j++) {
+      const o = off + j * sz;
+      switch (type) {
+        case 1: case 2: case 7: vals[j] = u8[o]; break;
+        case 3: vals[j] = dv.getUint16(o, le); break;
+        case 4: vals[j] = dv.getUint32(o, le); break;
+        case 5: vals[j] = dv.getUint32(o, le) / dv.getUint32(o + 4, le); break;
+        case 6: vals[j] = dv.getInt8(o); break;
+        case 8: vals[j] = dv.getInt16(o, le); break;
+        case 9: vals[j] = dv.getInt32(o, le); break;
+        case 10: vals[j] = dv.getInt32(o, le) / dv.getInt32(o + 4, le); break;
+        case 11: vals[j] = dv.getFloat32(o, le); break;
+        case 12: vals[j] = dv.getFloat64(o, le); break;
+      }
+    }
+    tags[tag] = vals;
+  }
+  const g = (t, d) => (tags[t] ? tags[t][0] : d);
+  const width = g(256), height = g(257);
+  const spp = g(277, 1), comp = g(259, 1), planar = g(284, 1), pred = g(317, 1);
+  const bpsAll = tags[258] || [1];
+  const bits = bpsAll[0];
+  const photo = g(262, spp >= 3 ? 2 : 1);
+  if (!width || !height) throw new Error('TIFF without image size');
+  if (bpsAll.some(b => b !== bits)) throw new Error('TIFF with mixed bit depths is not supported');
+  if (![1, 8, 16].includes(bits)) throw new Error(`${bits}-bit TIFF is not supported`);
+  if (g(339, 1) === 3) throw new Error('Floating-point TIFF is not supported');
+  if (planar !== 1 && spp > 1) throw new Error('TIFF with separate colour planes is not supported');
+  if (![1, 5, 8, 32946, 32773].includes(comp)) {
+    throw new Error(comp === 6 || comp === 7
+      ? 'JPEG-compressed TIFF is not supported. Save it as uncompressed or LZW TIFF.'
+      : `TIFF compression ${comp} is not supported. Save it as uncompressed or LZW TIFF.`);
+  }
+  const rowBytes = w => Math.ceil(w * spp * bits / 8);
+  const decompress = async (off, cnt, expected) => {
+    const src = u8.subarray(off, off + cnt);
+    if (comp === 1) return src.slice();
+    if (comp === 5) return lzwDecode(src, expected);
+    if (comp === 32773) return packbitsDecode(src, expected);
+    return inflate(src);
+  };
+  const unpredict = (d, w, rows) => {
+    if (pred !== 2) return;
+    const rb = rowBytes(w);
+    if (bits === 8) {
+      for (let r = 0; r < rows; r++) {
+        const base = r * rb;
+        for (let i = spp; i < w * spp; i++) d[base + i] = (d[base + i] + d[base + i - spp]) & 255;
+      }
+    } else if (bits === 16) {
+      const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
+      for (let r = 0; r < rows; r++) {
+        const base = r * rb;
+        for (let i = spp; i < w * spp; i++) {
+          const o = base + i * 2;
+          if (o + 1 >= d.length) break;
+          v.setUint16(o, (v.getUint16(o, le) + v.getUint16(o - 2 * spp, le)) & 0xffff, le);
+        }
+      }
+    }
+  };
+
+  const rb = rowBytes(width);
+  const full = new Uint8Array(rb * height);
+  if (tags[322]) {
+    const tw = g(322), th = g(323), offs = tags[324], cnts = tags[325];
+    const across = Math.ceil(width / tw), trb = rowBytes(tw);
+    for (let k = 0; k < offs.length; k++) {
+      const tx = k % across, ty = Math.floor(k / across);
+      if (ty * th >= height) break;
+      const d = await decompress(offs[k], cnts[k], trb * th);
+      unpredict(d, tw, th);
+      const x0 = tx * tw * spp * bits / 8;
+      const copy = Math.min(trb, rb - x0);
+      for (let r = 0; r < th; r++) {
+        const y = ty * th + r;
+        if (y >= height) break;
+        full.set(d.subarray(r * trb, r * trb + copy), y * rb + x0);
+      }
+    }
+  } else {
+    const offs = tags[273], cnts = tags[279];
+    const rps = Math.min(g(278, height), height);
+    for (let k = 0; k < offs.length; k++) {
+      const rows = Math.min(rps, height - k * rps);
+      if (rows <= 0) break;
+      const expected = rows * rb;
+      const d = await decompress(offs[k], cnts ? cnts[k] : expected, expected);
+      unpredict(d, width, rows);
+      full.set(d.subarray(0, Math.min(expected, d.length)), k * rps * rb);
+    }
+  }
+
+  // convert to RGBA 8-bit
+  const out = new Uint8ClampedArray(width * height * 4);
+  const r16 = o => le ? full[o] | (full[o + 1] << 8) : (full[o] << 8) | full[o + 1];
+  let scale = 1;
+  if (bits === 16) {
+    const ch = photo === 2 ? 3 : 1;
+    let max = 0;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) for (let c = 0; c < ch; c++) {
+      const v = r16(y * rb + (x * spp + c) * 2); if (v > max) max = v;
+    }
+    scale = max > 0 ? 255 / max : 1;
+  }
+  const sample = (y, x, c) => {
+    if (bits === 8) return full[y * rb + x * spp + c];
+    if (bits === 16) return r16(y * rb + (x * spp + c) * 2) * scale;
+    return ((full[y * rb + (x >> 3)] >> (7 - (x & 7))) & 1) * 255;
+  };
+  if (photo === 3) {
+    const cmap = tags[320];
+    if (!cmap || bits === 1) throw new Error('TIFF palette is missing or unsupported');
+    const N = 1 << bits;
+    for (let y = 0, o = 0; y < height; y++) for (let x = 0; x < width; x++, o += 4) {
+      const idx = bits === 8 ? full[y * rb + x * spp] : r16(y * rb + x * spp * 2);
+      out[o] = cmap[idx] >> 8; out[o + 1] = cmap[idx + N] >> 8; out[o + 2] = cmap[idx + 2 * N] >> 8; out[o + 3] = 255;
+    }
+  } else if (photo === 0 || photo === 1) {
+    for (let y = 0, o = 0; y < height; y++) for (let x = 0; x < width; x++, o += 4) {
+      let v = sample(y, x, 0);
+      if (photo === 0) v = 255 - v;
+      out[o] = out[o + 1] = out[o + 2] = v; out[o + 3] = 255;
+    }
+  } else if (photo === 2) {
+    if (spp < 3) throw new Error('RGB TIFF with fewer than 3 samples');
+    for (let y = 0, o = 0; y < height; y++) for (let x = 0; x < width; x++, o += 4) {
+      out[o] = sample(y, x, 0); out[o + 1] = sample(y, x, 1); out[o + 2] = sample(y, x, 2); out[o + 3] = 255;
+    }
+  } else {
+    throw new Error(`TIFF colour model ${photo} is not supported (use RGB or greyscale)`);
+  }
+
+  const unit = g(296, 2);
+  const toDpi = r => (r > 0 ? (unit === 2 ? r : unit === 3 ? r * 2.54 : null) : null);
+  return { width, height, rgba: out, dpi: toDpi(g(282)), dpiY: toDpi(g(283)) };
+}
+
+function dpiFromBMP(dv) {
+  if (dv.byteLength < 46 || dv.getUint32(14, true) < 40) return null;
+  const x = dv.getInt32(38, true), y = dv.getInt32(42, true);
+  return x > 0 ? { dpi: x * 0.0254, dpiY: y * 0.0254 } : null;
+}
+function dpiFromPNG(u8, dv) {
+  let o = 8;
+  while (o + 12 <= u8.length) {
+    const len = dv.getUint32(o);
+    const type = String.fromCharCode(u8[o + 4], u8[o + 5], u8[o + 6], u8[o + 7]);
+    if (type === 'pHYs') {
+      const x = dv.getUint32(o + 8), y = dv.getUint32(o + 12);
+      return u8[o + 16] === 1 ? { dpi: x * 0.0254, dpiY: y * 0.0254 } : null;
+    }
+    if (type === 'IDAT' || type === 'IEND') break;
+    o += 12 + len;
+  }
+  return null;
+}
+function dpiFromJPEG(u8, dv) {
+  let o = 2;
+  while (o + 4 < u8.length && u8[o] === 0xFF) {
+    const m = u8[o + 1], len = dv.getUint16(o + 2);
+    if (m === 0xE0 && String.fromCharCode(...u8.subarray(o + 4, o + 9)) === 'JFIF\0') {
+      const unit = u8[o + 11], x = dv.getUint16(o + 12), y = dv.getUint16(o + 14);
+      if (unit === 1) return { dpi: x, dpiY: y };
+      if (unit === 2) return { dpi: x * 2.54, dpiY: y * 2.54 };
+      return null;
+    }
+    if (m === 0xDA) break;
+    o += 2 + len;
+  }
+  return null;
+}
+
+async function loadImage(file) {
+  const buf = await file.arrayBuffer();
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  const sha256 = await sha256Hex(buf);
+  let bitmap, width, height, res = null;
+  const isTIFF = (u8[0] === 0x49 && u8[1] === 0x49 && u8[2] === 42) || (u8[0] === 0x4D && u8[1] === 0x4D && u8[3] === 42) ||
+                 (u8[0] === 0x49 && u8[1] === 0x49 && u8[2] === 43) || (u8[0] === 0x4D && u8[1] === 0x4D && u8[3] === 43);
+  if (isTIFF) {
+    const t = await decodeTIFF(buf);
+    width = t.width; height = t.height; res = t.dpi ? { dpi: t.dpi, dpiY: t.dpiY } : null;
+    bitmap = await createImageBitmap(new ImageData(t.rgba, width, height));
+  } else {
+    if (u8[0] === 0x42 && u8[1] === 0x4D) res = dpiFromBMP(dv);
+    else if (u8[0] === 0x89 && u8[1] === 0x50) res = dpiFromPNG(u8, dv);
+    else if (u8[0] === 0xFF && u8[1] === 0xD8) res = dpiFromJPEG(u8, dv);
+    else throw new Error('Unknown image format (use TIFF, BMP, PNG or JPEG)');
+    try {
+      bitmap = await createImageBitmap(file);
+    } catch {
+      throw new Error('The browser could not decode this image');
+    }
+    width = bitmap.width; height = bitmap.height;
+  }
+  return {
+    bitmap, width, height, sha256, name: file.name,
+    dpi: res && res.dpi ? round(res.dpi, 2) : null,
+    dpiY: res && res.dpiY ? round(res.dpiY, 2) : null,
+  };
+}
+
+/* ---------------------------------------------------------------------
+   Geometry: segments, path position s, depth
+   --------------------------------------------------------------------- */
+function segLength(seg) {
+  const p = seg.points;
+  let L = 0;
+  for (let i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
+  return L;
+}
+function pathInfo(sec) {
+  const offs = [];
+  let L = 0;
+  for (const g of sec.segments) { offs.push(L); L += segLength(g); }
+  return { offs, L };
+}
+
+/* Nearest point on a segment polyline. extStart / extEnd let the first /
+   last piece run past the segment's ends (to detect clicks beyond the path). */
+function projectOnSeg(seg, p, extStart, extEnd) {
+  const pts = seg.points, n = pts.length;
+  let best = null, acc = 0;
+  for (let i = 0; i < n - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const vx = b[0] - a[0], vy = b[1] - a[1];
+    const l2 = vx * vx + vy * vy;
+    if (l2 === 0) continue;
+    const l = Math.sqrt(l2);
+    let t = ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / l2;
+    t = Math.max(extStart && i === 0 ? -Infinity : 0, Math.min(extEnd && i === n - 2 ? Infinity : 1, t));
+    const x = a[0] + vx * t, y = a[1] + vy * t;
+    const d = Math.hypot(p[0] - x, p[1] - y);
+    if (!best || d < best.d) best = { d, along: acc + t * l, pt: [x, y], dir: [vx / l, vy / l] };
+    acc += l;
+  }
+  return best;
+}
+
+function pointAt(seg, along) {
+  const p = seg.points;
+  let acc = 0;
+  for (let i = 1; i < p.length; i++) {
+    const dx = p[i][0] - p[i - 1][0], dy = p[i][1] - p[i - 1][1];
+    const l = Math.hypot(dx, dy);
+    if (l === 0) continue;
+    if (along <= acc + l || i === p.length - 1) {
+      const t = (along - acc) / l;
+      return { pt: [p[i - 1][0] + dx * t, p[i - 1][1] + dy * t], dir: [dx / l, dy / l] };
+    }
+    acc += l;
+  }
+  return { pt: p[0], dir: [1, 0] };
+}
+
+/* Locate an image point on the path: nearest segment, its position s. */
+function locate(sec, p) {
+  const segs = sec.segments;
+  let best = null;
+  segs.forEach((g, i) => {
+    if (g.points.length < 2) return;
+    const r = projectOnSeg(g, p, i === 0, i === segs.length - 1);
+    if (r && (!best || r.d < best.d)) best = { ...r, seg: i };
+  });
+  if (!best) return null;
+  const { offs, L } = pathInfo(sec);
+  best.s = offs[best.seg] + best.along;
+  best.L = L;
+  return best;
+}
+
+const mmPerPx = sec => (sec.dpi > 0 ? MM_PER_IN / sec.dpi : null);
+const anchored = sec => sec.anchors && sec.anchors.top_mm != null && sec.anchors.bottom_mm != null && sec.anchors.bottom_mm > sec.anchors.top_mm;
+function coreDepth(sec, s, L) {
+  if (!anchored(sec) || !(L > 0)) return null;
+  return sec.anchors.top_mm + (s / L) * (sec.anchors.bottom_mm - sec.anchors.top_mm);
+}
+function stretchFactor(sec) {
+  const { L } = pathInfo(sec), k = mmPerPx(sec);
+  if (!anchored(sec) || !k || !(L > 0)) return null;
+  return (sec.anchors.bottom_mm - sec.anchors.top_mm) / (L * k);
+}
+function pathSig(sec) {
+  const str = JSON.stringify(sec.segments.map(g => g.points));
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+/* The joint guide: a line through the end of the last segment, across the
+   path direction — roughly along the lamina where the next segment starts. */
+function jointGuide(sec) {
+  const g = sec.segments[sec.segments.length - 1];
+  if (!g || g.points.length < 2) return null;
+  const p = g.points, e = p[p.length - 1], a = p[p.length - 2];
+  const l = Math.hypot(e[0] - a[0], e[1] - a[1]) || 1;
+  return { e, n: [-(e[1] - a[1]) / l, (e[0] - a[0]) / l] };
+}
+function snapToGuide(guide, p) {
+  const t = (p[0] - guide.e[0]) * guide.n[0] + (p[1] - guide.e[1]) * guide.n[1];
+  return [guide.e[0] + guide.n[0] * t, guide.e[1] + guide.n[1] * t];
+}
+
+/* ---------------------------------------------------------------------
+   Project model
+   --------------------------------------------------------------------- */
+function newProjectObj(name) {
+  const t = nowISO();
+  return {
+    schema: SCHEMA_PROJECT, app: APP, project: name,
+    people: [],
+    settings: { method_c: { tolerance_fraction: 0.5, window: 10 } },
+    sections: [], created: t, modified: t,
+  };
+}
+function normalizeProject(o) {
+  if (!o || o.schema !== SCHEMA_PROJECT) throw new Error('This is not a varve project file');
+  o.people = Array.isArray(o.people) ? o.people : [];
+  o.settings = o.settings || { method_c: { tolerance_fraction: 0.5, window: 10 } };
+  o.sections = (o.sections || []).map(s => ({
+    ...s,
+    segments: Array.isArray(s.segments) ? s.segments : [],
+    anchors: s.anchors || { top_mm: null, bottom_mm: null },
+  }));
+  return o;
+}
+const curSec = () => (state.project ? state.project.sections.find(s => s.id === state.secId) || null : null);
+const secById = id => state.project.sections.find(s => s.id === id) || null;
+const curImg = () => (state.secId ? state.images.get(state.secId) || null : null);
+
+function continuity() {
+  const out = [];
+  const S = state.project.sections;
+  S.forEach((s, i) => {
+    const a = s.anchors;
+    if (!(s.dpi > 0)) out.push(['warn', `${s.id}: DPI missing`]);
+    if (!s.segments.length) out.push(['warn', `${s.id}: no path drawn`]);
+    if (a.top_mm == null || a.bottom_mm == null) out.push(['warn', `${s.id}: depth anchors missing`]);
+    else if (a.bottom_mm <= a.top_mm) out.push(['err', `${s.id}: path end must be deeper than path start`]);
+    if (i > 0) {
+      const p = S[i - 1].anchors;
+      if (p.bottom_mm != null && a.top_mm != null) {
+        const d = a.top_mm - p.bottom_mm;
+        if (d > EPS_MM) out.push(['err', `Gap of ${fmt(d / 10, 3)} cm between ${S[i - 1].id} and ${s.id}`]);
+        else if (d < -EPS_MM) out.push(['err', `Overlap of ${fmt(-d / 10, 3)} cm between ${S[i - 1].id} and ${s.id} — varves would be counted twice`]);
+      }
+    }
+  });
+  return out;
+}
+
+function touchProject(sec) {
+  if (sec) { sec.modified = nowISO(); }
+  state.project.modified = nowISO();
+  state.projectDirty = true;
+  scheduleAutosave();
+  refreshTitle();
+}
+function touchPath(sec) {
+  sec.drawn_by = state.person || sec.drawn_by || null;
+  touchProject(sec);
+  if (state.counts) syncCountsSection(sec);
+}
+
+/* ---------------------------------------------------------------------
+   Counts model (one file per counter)
+   --------------------------------------------------------------------- */
+function newCountsObj() {
+  const t = nowISO();
+  return { schema: SCHEMA_COUNTS, app: APP, project: state.project.project, person: state.person, sections: {}, created: t, modified: t };
+}
+function countsSec(id, create) {
+  if (!state.counts) return null;
+  let cs = state.counts.sections[id];
+  if (!cs && create) {
+    const sec = secById(id);
+    cs = state.counts.sections[id] = { image_sha256: sec.image.sha256, path_sig: pathSig(sec), boundaries: [] };
+  }
+  return cs || null;
+}
+function touchCounts() {
+  state.counts.modified = nowISO();
+  state.countsDirty = true;
+  scheduleAutosave();
+  refreshTitle();
+}
+
+/* Boundaries of a section with their position s, sorted along the path. */
+function withS(sec, cs) {
+  const segs = sec.segments;
+  const { offs } = pathInfo(sec);
+  const out = [];
+  for (const b of cs.boundaries) {
+    const g = segs[b.seg];
+    let r, seg = b.seg;
+    if (g && g.points.length >= 2) r = projectOnSeg(g, [b.x, b.y], b.seg === 0, b.seg === segs.length - 1);
+    else { r = locate(sec, [b.x, b.y]); if (r) seg = r.seg; }
+    if (!r) continue;
+    out.push({ b, seg, along: r.along, s: offs[seg] + r.along });
+  }
+  return out.sort((x, y) => x.s - y.s);
+}
+
+/* After a path change: re-attach every boundary to its nearest segment. */
+function syncCountsSection(sec) {
+  const cs = countsSec(sec.id, false);
+  if (!cs) return false;
+  const sig = pathSig(sec);
+  if (cs.path_sig === sig) return false;
+  for (const b of cs.boundaries) {
+    const r = locate(sec, [b.x, b.y]);
+    if (r) { b.seg = r.seg; b.s_px = round(r.s, 2); }
+  }
+  cs.path_sig = sig;
+  touchCounts();
+  return true;
+}
+
+function nextBoundaryId(cs) {
+  let m = 0;
+  for (const b of cs.boundaries) { const k = parseInt(String(b.id).replace(/\D/g, ''), 10); if (k > m) m = k; }
+  return 'b' + String(m + 1).padStart(4, '0');
+}
+
+/* ---------------------------------------------------------------------
+   Autosave (browser storage, convenience only)
+   --------------------------------------------------------------------- */
+const keyProject = name => `varves:autosave:project:${name}`;
+const keyCounts = (name, person) => `varves:autosave:counts:${name}:${person}`;
+let autosaveTimer;
+function scheduleAutosave() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    if (state.project && state.projectDirty) store.set(keyProject(state.project.project), JSON.stringify(state.project));
+    if (state.counts && state.countsDirty) store.set(keyCounts(state.counts.project, state.counts.person), JSON.stringify(state.counts));
+  }, 800);
+}
+function offerRestore(key, obj, what) {
+  const raw = store.get(key);
+  if (!raw) return obj;
+  try {
+    const a = JSON.parse(raw);
+    if (a && a.modified && (!obj || a.modified > obj.modified) &&
+        confirm(`This browser holds unsaved changes to ${what} from ${a.modified.replace('T', ' ').replace('Z', ' UTC')}.\n\nRestore them?`)) {
+      return a;
+    }
+  } catch { /* ignore broken autosave */ }
+  return obj;
+}
+
+/* ---------------------------------------------------------------------
+   Undo / redo (per domain: setup = path geometry, counts = boundaries)
+   --------------------------------------------------------------------- */
+const undo = { setup: [], counts: [] }, redo = { setup: [], counts: [] };
+function snapshot(domain, secId) {
+  const sec = secById(secId);
+  if (domain === 'setup') return { secId, data: JSON.stringify(sec.segments) };
+  const cs = countsSec(secId, false);
+  return { secId, data: JSON.stringify(cs ? cs.boundaries : []) };
+}
+function pushUndo(domain) {
+  if (!state.secId) return;
+  undo[domain].push(snapshot(domain, state.secId));
+  if (undo[domain].length > 300) undo[domain].shift();
+  redo[domain].length = 0;
+}
+function restoreSnap(domain, snap) {
+  const sec = secById(snap.secId);
+  if (!sec) return;
+  if (domain === 'setup') { sec.segments = JSON.parse(snap.data); touchPath(sec); }
+  else { countsSec(sec.id, true).boundaries = JSON.parse(snap.data); touchCounts(); }
+  if (state.secId !== sec.id) selectSection(sec.id);
+  state.selB = null; state.selV = null;
+  refreshPanels(); requestDraw();
+}
+function undoRedo(isRedo) {
+  const domain = state.tab === 'setup' ? 'setup' : state.tab === 'count' && state.counts ? 'counts' : null;
+  if (!domain) return;
+  const from = isRedo ? redo[domain] : undo[domain], to = isRedo ? undo[domain] : redo[domain];
+  const snap = from.pop();
+  if (!snap || !secById(snap.secId)) return;
+  to.push(snapshot(domain, snap.secId));
+  restoreSnap(domain, snap);
+}
+function clearUndo() { for (const d of ['setup', 'counts']) { undo[d].length = 0; redo[d].length = 0; } }
+
+/* ---------------------------------------------------------------------
+   Canvas view
+   --------------------------------------------------------------------- */
+const cv = $('cv'), ctx = cv.getContext('2d');
+let Mc = new DOMMatrix(), Mi = new DOMMatrix();
+function updM() {
+  Mc = new DOMMatrix().translate(view.tx, view.ty).rotate(view.rot * 90).scale(view.scale);
+  Mi = Mc.inverse();
+}
+const toScreen = p => { const q = Mc.transformPoint({ x: p[0], y: p[1] }); return [q.x, q.y]; };
+const toImage = (sx, sy) => { const q = Mi.transformPoint({ x: sx, y: sy }); return [q.x, q.y]; };
+const W = () => cv.clientWidth, H = () => cv.clientHeight;
+
+function fitView() {
+  const img = curImg();
+  if (!img) return;
+  const rw = view.rot % 2 ? img.height : img.width, rh = view.rot % 2 ? img.width : img.height;
+  view.scale = Math.min((W() - 120) / rw, (H() - 100) / rh);
+  view.tx = 0; view.ty = 0; updM();
+  const c = toScreen([img.width / 2, img.height / 2]);
+  view.tx = W() / 2 - c[0]; view.ty = H() / 2 - c[1];
+  updM(); requestDraw();
+}
+function zoomAt(sx, sy, f) {
+  const p = toImage(sx, sy);
+  view.scale = clamp(view.scale * f, 0.005, 64);
+  updM();
+  const q = toScreen(p);
+  view.tx += sx - q[0]; view.ty += sy - q[1];
+  updM(); requestDraw();
+}
+function rotateView() {
+  const p = toImage(W() / 2, H() / 2);
+  view.rot = (view.rot + 1) % 4;
+  updM();
+  const q = toScreen(p);
+  view.tx += W() / 2 - q[0]; view.ty += H() / 2 - q[1];
+  updM(); requestDraw();
+}
+function panBy(dx, dy) { view.tx += dx; view.ty += dy; updM(); requestDraw(); }
+
+/* Move the view along the active segment (D deeper, A back). */
+function panAlongPath(sign) {
+  const sec = curSec();
+  if (!sec || !sec.segments.length) return;
+  const g = sec.segments[clamp(state.activeSeg, 0, sec.segments.length - 1)];
+  const c = toImage(W() / 2, H() / 2);
+  const r = projectOnSeg(g, c, false, false);
+  if (!r) return;
+  const a = toScreen(r.pt), b = toScreen([r.pt[0] + r.dir[0], r.pt[1] + r.dir[1]]);
+  const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+  const step = 0.6 * Math.min(W(), H());
+  panBy(-sign * dx / l * step, -sign * dy / l * step);
+}
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(W() * dpr); cv.height = Math.round(H() * dpr);
+  requestDraw();
+}
+new ResizeObserver(resizeCanvas).observe($('stage'));
+
+/* ---------------------------------------------------------------------
+   Drawing
+   --------------------------------------------------------------------- */
+let drawPending = false;
+function requestDraw() {
+  if (drawPending) return;
+  drawPending = true;
+  requestAnimationFrame(() => { drawPending = false; draw(); });
+}
+
+function strokePoly(pts, color, w, dash) {
+  if (pts.length < 2) return;
+  ctx.save();
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.setLineDash(dash || []);
+  ctx.beginPath();
+  pts.forEach((p, i) => { const q = toScreen(p); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+  ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = w + 2.5; ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke();
+  ctx.restore();
+}
+function label(text, x, y, color = '#fff', align = 'left') {
+  ctx.save();
+  ctx.font = '600 12px system-ui, sans-serif';
+  ctx.textAlign = align; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(text, x, y);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
+  ctx.restore();
+}
+function dot(p, r, fill, stroke = '#000') {
+  const q = toScreen(p);
+  ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, Math.PI * 2);
+  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke();
+}
+/* Unit normal in screen space at an image point with image direction dir. */
+function screenNormal(pt, dir) {
+  const a = toScreen(pt), b = toScreen([pt[0] + dir[0], pt[1] + dir[1]]);
+  const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+  return { P: a, n: [-dy / l, dx / l], t: [dx / l, dy / l] };
+}
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const sec = curSec(), img = curImg();
+  const empty = $('empty');
+  if (!state.project) empty.textContent = 'Create or open a project in the Project tab.';
+  else if (!state.project.sections.length) empty.textContent = 'Add the thin-section images in the Project tab.';
+  else if (!sec) empty.textContent = 'Choose a section.';
+  else if (!img) empty.textContent = `The image of section ${sec.id} is not loaded. Load “${sec.image.file}” with “Load images…” in the Project tab.`;
+  empty.hidden = !!img;
+  $('zPct').textContent = img ? Math.round(view.scale * 100) + '%' : '—';
+  if (!img) return;
+  updM();
+  ctx.setTransform(dpr * Mc.a, dpr * Mc.b, dpr * Mc.c, dpr * Mc.d, dpr * Mc.e, dpr * Mc.f);
+  ctx.imageSmoothingEnabled = view.scale < 2;
+  const f = state.filter;
+  ctx.filter = f.b !== 100 || f.c !== 100 ? `brightness(${f.b}%) contrast(${f.c}%)` : 'none';
+  ctx.drawImage(img.bitmap, 0, 0);
+  ctx.filter = 'none';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawPath(sec);
+  if (state.tab === 'setup') drawSetup(sec, img);
+  if (state.tab === 'count') drawBoundaries(sec);
+}
+
+function drawPath(sec) {
+  const segs = sec.segments;
+  const counting = state.tab === 'count';
+  for (let i = 0; i < segs.length - 1; i++) {
+    const a = segs[i].points, b = segs[i + 1].points;
+    if (a.length && b.length) strokePoly([a[a.length - 1], b[0]], '#ffffff', 1, [4, 4]);
+  }
+  segs.forEach((g, i) => {
+    const w = counting && i === state.activeSeg ? 2.5 : 1.5;
+    strokePoly(g.points, SEG_COLORS[i % 2], w);
+    if (state.tab === 'setup') {
+      g.points.forEach((p, vi) => {
+        const sel = state.selV && state.selV.seg === i && state.selV.vi === vi;
+        dot(p, sel ? 6 : 4, sel ? '#ff4fd8' : SEG_COLORS[i % 2]);
+      });
+    }
+    if (g.points.length >= 2) {
+      const { P, n } = screenNormal(g.points[0], pointAt(g, 0).dir);
+      label(String(i + 1), P[0] + n[0] * 14, P[1] + n[1] * 14, SEG_COLORS[i % 2], 'center');
+    }
+  });
+  const first = segs[0], last = segs[segs.length - 1];
+  if (first && first.points.length >= 2 && last.points.length >= 2) {
+    const a = sec.anchors;
+    const s0 = screenNormal(first.points[0], pointAt(first, 0).dir);
+    label('top' + (a.top_mm != null ? ` ${fmt(a.top_mm / 10, 2)} cm` : ''), s0.P[0] - s0.n[0] * 16, s0.P[1] - s0.n[1] * 16, '#fff', 'center');
+    const lp = last.points[last.points.length - 1];
+    const s1 = screenNormal(lp, pointAt(last, segLength(last)).dir);
+    label('base' + (a.bottom_mm != null ? ` ${fmt(a.bottom_mm / 10, 2)} cm` : ''), s1.P[0] - s1.n[0] * 16, s1.P[1] - s1.n[1] * 16, '#fff', 'center');
+  }
+}
+
+function drawSetup(sec, img) {
+  if (state.tool === 'draw') {
+    const guide = sec.segments.length && jointGuide(sec);
+    if (guide) {
+      const D = Math.hypot(img.width, img.height);
+      strokePoly([[guide.e[0] - guide.n[0] * D, guide.e[1] - guide.n[1] * D], [guide.e[0] + guide.n[0] * D, guide.e[1] + guide.n[1] * D]], '#ff4fd8', 1.2, [8, 6]);
+    }
+    if (state.draft && state.draft.length) {
+      const pts = state.draft.slice();
+      if (state.cursor) pts.push(state.cursor);
+      strokePoly(pts, '#ff4fd8', 1.5, [6, 4]);
+      state.draft.forEach(p => dot(p, 4, '#ff4fd8'));
+    }
+  }
+  if (state.tool === 'scale' && state.scalePts) {
+    const pts = state.scalePts.slice();
+    if (pts.length === 1 && state.cursor) pts.push(state.cursor);
+    strokePoly(pts, '#7CFC00', 1.5);
+    state.scalePts.forEach(p => dot(p, 4, '#7CFC00'));
+  }
+}
+
+const TICK = 14;
+function drawBoundaries(sec) {
+  const cs = countsSec(sec.id, false);
+  if (!cs || !sec.segments.length) return;
+  const list = withS(sec, cs);
+  let lastLab = null;
+  const w = W(), h = H();
+  list.forEach((it, i) => {
+    const g = sec.segments[it.seg];
+    if (!g) return;
+    const { pt, dir } = pointAt(g, it.along);
+    const { P, n } = screenNormal(pt, dir);
+    if (P[0] < -50 || P[1] < -50 || P[0] > w + 50 || P[1] > h + 50) return;
+    const sel = it.b.id === state.selB;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(P[0] - n[0] * TICK, P[1] - n[1] * TICK);
+    ctx.lineTo(P[0] + n[0] * TICK, P[1] + n[1] * TICK);
+    ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.lineWidth = sel ? 6 : 4.5; ctx.stroke();
+    ctx.strokeStyle = sel ? '#39ff88' : '#ff3b30'; ctx.lineWidth = sel ? 3 : 2; ctx.stroke();
+    ctx.restore();
+    if (state.showNums) {
+      const lx = P[0] + n[0] * (TICK + 9), ly = P[1] + n[1] * (TICK + 9);
+      if (!lastLab || Math.hypot(lx - lastLab[0], ly - lastLab[1]) > 18 || sel) {
+        label(String(i + 1), lx, ly, sel ? '#39ff88' : '#fff', 'center');
+        lastLab = [lx, ly];
+      }
+    }
+  });
+}
+
+/* ---------------------------------------------------------------------
+   Hit tests
+   --------------------------------------------------------------------- */
+function hitBoundary(sec, sx, sy) {
+  const cs = countsSec(sec.id, false);
+  if (!cs) return null;
+  let best = null, bd = 8;
+  for (const it of withS(sec, cs)) {
+    const g = sec.segments[it.seg];
+    if (!g) continue;
+    const { pt, dir } = pointAt(g, it.along);
+    const { P, n } = screenNormal(pt, dir);
+    // distance to the tick
+    const vx = sx - P[0], vy = sy - P[1];
+    const along = clamp(vx * n[0] + vy * n[1], -TICK, TICK);
+    const d = Math.hypot(vx - n[0] * along, vy - n[1] * along);
+    if (d < bd) { bd = d; best = it.b; }
+  }
+  return best;
+}
+function hitVertex(sec, sx, sy) {
+  let best = null, bd = 8;
+  sec.segments.forEach((g, si) => g.points.forEach((p, vi) => {
+    const q = toScreen(p), d = Math.hypot(q[0] - sx, q[1] - sy);
+    if (d < bd) { bd = d; best = { seg: si, vi }; }
+  }));
+  return best;
+}
+
+/* ---------------------------------------------------------------------
+   Editing actions
+   --------------------------------------------------------------------- */
+function addBoundary(sec, p) {
+  if (!state.counts) { toast('Start a new count or open your counts file first.', 'err'); return; }
+  if (!sec.segments.length) { toast('This section has no path yet — draw it in Setup.', 'err'); return; }
+  p = [round(p[0], 1), round(p[1], 1)];
+  const loc = locate(sec, p);
+  if (!loc) return;
+  if (loc.s < 0) { toast('Before the path start — not counted.', 'err'); return; }
+  if (loc.s >= loc.L) { toast('At or after the path end — this belongs to the next section.', 'err'); return; }
+  const cs = countsSec(sec.id, true);
+  if (withS(sec, cs).some(it => Math.abs(it.s - loc.s) < 1)) { toast('There is already a boundary here.', 'err'); return; }
+  pushUndo('counts');
+  const b = { id: nextBoundaryId(cs), seg: loc.seg, s_px: round(loc.s, 2), x: p[0], y: p[1] };
+  cs.boundaries.push(b);
+  cs.path_sig = pathSig(sec);
+  state.selB = b.id;
+  state.activeSeg = loc.seg;
+  touchCounts(); renderCountStats(); requestDraw();
+}
+function moveBoundary(sec, b, p) {
+  p = [round(p[0], 1), round(p[1], 1)];
+  const loc = locate(sec, p);
+  if (!loc || loc.s < 0 || loc.s >= loc.L) return;
+  b.x = p[0]; b.y = p[1]; b.seg = loc.seg; b.s_px = round(loc.s, 2);
+  state.activeSeg = loc.seg;
+}
+function deleteBoundary(sec, id) {
+  const cs = countsSec(sec.id, false);
+  if (!cs) return;
+  const i = cs.boundaries.findIndex(b => b.id === id);
+  if (i < 0) return;
+  pushUndo('counts');
+  cs.boundaries.splice(i, 1);
+  if (state.selB === id) state.selB = null;
+  touchCounts(); renderCountStats(); requestDraw();
+}
+
+function finishDraft() {
+  const sec = curSec();
+  const d = state.draft;
+  state.draft = null;
+  if (!sec || !d) { requestDraw(); return; }
+  // drop points made by the double-click itself
+  const pts = [];
+  for (const p of d) {
+    const q = pts[pts.length - 1];
+    if (!q || Math.hypot((p[0] - q[0]) * view.scale, (p[1] - q[1]) * view.scale) > 3) pts.push(p);
+  }
+  if (pts.length < 2) { toast('A segment needs at least two points.', 'err'); requestDraw(); return; }
+  pushUndo('setup');
+  const id = sec.segments.reduce((m, g) => Math.max(m, g.id || 0), 0) + 1;
+  sec.segments.push({ id, points: pts });
+  touchPath(sec); renderSetup(); renderProject(); requestDraw();
+}
+function deleteSegment(i) {
+  const sec = curSec();
+  pushUndo('setup');
+  sec.segments.splice(i, 1);
+  state.selV = null;
+  touchPath(sec); renderSetup(); renderProject(); requestDraw();
+}
+function deleteVertex(sel) {
+  const sec = curSec();
+  const g = sec.segments[sel.seg];
+  if (!g) return;
+  pushUndo('setup');
+  if (g.points.length <= 2) sec.segments.splice(sel.seg, 1);
+  else g.points.splice(sel.vi, 1);
+  state.selV = null;
+  touchPath(sec); renderSetup(); renderProject(); requestDraw();
+}
+
+/* ---------------------------------------------------------------------
+   Pointer handling
+   --------------------------------------------------------------------- */
+let drag = null, spaceDown = false;
+const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+
+cv.addEventListener('pointerdown', e => {
+  if (!curImg()) return;
+  const [sx, sy] = pos(e);
+  const sec = curSec();
+  cv.setPointerCapture(e.pointerId);
+  if (e.button === 1 || (e.button === 0 && spaceDown)) {
+    drag = { kind: 'pan', sx, sy, tx: view.tx, ty: view.ty, moved: true };
+    cv.style.cursor = 'grabbing';
+    return;
+  }
+  if (e.button !== 0) return;
+  if (state.tab === 'count' && state.counts) {
+    const b = hitBoundary(sec, sx, sy);
+    if (b) { state.selB = b.id; drag = { kind: 'boundary', b, sx, sy, moved: false }; renderCountStats(); requestDraw(); return; }
+  }
+  if (state.tab === 'setup' && state.tool === 'edit') {
+    const hv = hitVertex(sec, sx, sy);
+    if (hv) { state.selV = hv; drag = { kind: 'vertex', ...hv, sx, sy, moved: false }; requestDraw(); return; }
+  }
+  drag = { kind: 'pan', sx, sy, tx: view.tx, ty: view.ty, moved: false };
+});
+
+cv.addEventListener('pointermove', e => {
+  const [sx, sy] = pos(e);
+  if (curImg()) { state.cursor = toImage(sx, sy); updateStatus(); }
+  if (!drag) { if (state.tab === 'setup' && (state.draft || state.scalePts)) requestDraw(); return; }
+  const dx = sx - drag.sx, dy = sy - drag.sy;
+  if (!drag.moved) {
+    if (Math.hypot(dx, dy) < 4) return;
+    drag.moved = true;
+    if (drag.kind === 'boundary') pushUndo('counts');
+    if (drag.kind === 'vertex') pushUndo('setup');
+    if (drag.kind === 'pan') cv.style.cursor = 'grabbing';
+  }
+  const sec = curSec();
+  if (drag.kind === 'pan') { view.tx = drag.tx + dx; view.ty = drag.ty + dy; updM(); requestDraw(); }
+  else if (drag.kind === 'boundary') { moveBoundary(sec, drag.b, toImage(sx, sy)); requestDraw(); }
+  else if (drag.kind === 'vertex') {
+    const p = toImage(sx, sy);
+    sec.segments[drag.seg].points[drag.vi] = [round(p[0], 1), round(p[1], 1)];
+    requestDraw();
+  }
+});
+
+cv.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const d = drag;
+  drag = null;
+  setCursor();
+  const sec = curSec();
+  if (d.moved) {
+    if (d.kind === 'boundary') { touchCounts(); renderCountStats(); }
+    if (d.kind === 'vertex') { touchPath(sec); renderSetup(); renderProject(); }
+    return;
+  }
+  if (d.kind !== 'pan' || e.button !== 0) return;
+  const p = toImage(...pos(e));
+  if (state.tab === 'count') addBoundary(sec, p);
+  else if (state.tab === 'setup') {
+    if (state.tool === 'draw') {
+      if (!state.draft) {
+        state.draft = [];
+        const guide = sec.segments.length && jointGuide(sec);
+        if (guide && $('snapGuide').checked && !e.shiftKey) p.splice(0, 2, ...snapToGuide(guide, p));
+      }
+      state.draft.push([round(p[0], 1), round(p[1], 1)]);
+      requestDraw();
+    } else if (state.tool === 'scale') {
+      state.scalePts = state.scalePts && state.scalePts.length < 2 ? state.scalePts : [];
+      state.scalePts.push([round(p[0], 1), round(p[1], 1)]);
+      renderScale(); requestDraw();
+    } else if (state.selV) { state.selV = null; requestDraw(); }
+  }
+});
+
+cv.addEventListener('dblclick', e => {
+  if (state.tab === 'setup' && state.tool === 'draw' && state.draft) { e.preventDefault(); finishDraft(); }
+});
+
+cv.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const sec = curSec();
+  if (!sec || !curImg()) return;
+  const [sx, sy] = pos(e);
+  if (state.tab === 'count' && state.counts) {
+    const b = hitBoundary(sec, sx, sy);
+    if (b) deleteBoundary(sec, b.id);
+  } else if (state.tab === 'setup') {
+    if (state.tool === 'draw' && state.draft) finishDraft();
+    else if (state.tool === 'edit') { const hv = hitVertex(sec, sx, sy); if (hv) deleteVertex(hv); }
+  }
+});
+
+cv.addEventListener('wheel', e => {
+  if (!curImg()) return;
+  e.preventDefault();
+  const [sx, sy] = pos(e);
+  const k = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1;
+  zoomAt(sx, sy, Math.pow(1.0015, -e.deltaY * k));
+}, { passive: false });
+
+cv.addEventListener('pointerleave', () => { state.cursor = null; updateStatus(); if (state.draft) requestDraw(); });
+
+function setCursor() {
+  if (spaceDown) { cv.style.cursor = 'grab'; return; }
+  const cross = state.tab === 'count' || (state.tab === 'setup' && state.tool !== 'edit');
+  cv.style.cursor = cross ? 'crosshair' : 'default';
+}
+
+function updateStatus() {
+  const sec = curSec(), img = curImg(), p = state.cursor;
+  if (!sec || !img || !p) { $('status').innerHTML = '&nbsp;'; return; }
+  const parts = [`x ${Math.round(p[0])}  y ${Math.round(p[1])} px`];
+  if (sec.segments.length) {
+    const loc = locate(sec, p), k = mmPerPx(sec);
+    if (loc) {
+      const inside = loc.s >= 0 && loc.s < loc.L;
+      parts.push(`segment ${loc.seg + 1}`);
+      parts.push(`s ${k ? fmt(loc.s * k, 3) + ' mm' : Math.round(loc.s) + ' px'}`);
+      const d = coreDepth(sec, loc.s, loc.L);
+      if (d != null && inside) parts.push(`depth ${fmt(d / 10, 4)} cm`);
+      if (!inside) parts.push('outside the path');
+    }
+  }
+  if (state.tab === 'setup' && state.tool === 'scale' && state.scalePts && state.scalePts.length === 1) {
+    parts.push(`scale ${fmt(Math.hypot(p[0] - state.scalePts[0][0], p[1] - state.scalePts[0][1]), 1)} px`);
+  }
+  $('status').textContent = parts.join('   ·   ');
+}
+
+/* ---------------------------------------------------------------------
+   Keyboard
+   --------------------------------------------------------------------- */
+document.addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input, select, textarea')) return;
+  const k = e.key, mod = e.ctrlKey || e.metaKey;
+  if (mod && k.toLowerCase() === 'z') { e.preventDefault(); undoRedo(e.shiftKey); return; }
+  if (mod && k.toLowerCase() === 'y') { e.preventDefault(); undoRedo(true); return; }
+  if (mod && k.toLowerCase() === 's') { e.preventDefault(); if (state.tab === 'count') saveCounts(); else saveProject(false); return; }
+  if (mod || e.altKey) return;
+  const sec = curSec();
+  switch (k) {
+    case ' ': spaceDown = true; setCursor(); e.preventDefault(); break;
+    case '+': case '=': zoomAt(W() / 2, H() / 2, 1.25); break;
+    case '-': case '_': zoomAt(W() / 2, H() / 2, 0.8); break;
+    case 'f': case 'F': case '0': fitView(); break;
+    case 'r': case 'R': rotateView(); break;
+    case 'n': case 'N': state.showNums = !state.showNums; $('showNums').checked = state.showNums; requestDraw(); break;
+    case 'd': case 'D': panAlongPath(1); break;
+    case 'a': case 'A': panAlongPath(-1); break;
+    case 'ArrowLeft': panBy(W() / 4, 0); e.preventDefault(); break;
+    case 'ArrowRight': panBy(-W() / 4, 0); e.preventDefault(); break;
+    case 'ArrowUp': panBy(0, H() / 4); e.preventDefault(); break;
+    case 'ArrowDown': panBy(0, -H() / 4); e.preventDefault(); break;
+    case 'Delete': case 'Backspace':
+      if (state.tab === 'count' && state.selB && sec) deleteBoundary(sec, state.selB);
+      else if (state.tab === 'setup' && state.selV) deleteVertex(state.selV);
+      e.preventDefault();
+      break;
+    case 'Enter': if (state.tab === 'setup' && state.draft) finishDraft(); break;
+    case 'Escape':
+      if (state.draft) state.draft = null;
+      else if (state.tool === 'scale') { state.scalePts = null; setTool('edit'); }
+      state.selB = null; state.selV = null; requestDraw(); renderCountStats();
+      break;
+  }
+});
+document.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; setCursor(); } });
+
+/* ---------------------------------------------------------------------
+   Project actions
+   --------------------------------------------------------------------- */
+function confirmDiscard(what) {
+  return confirm(`There are unsaved changes to ${what}. Discard them?`);
+}
+
+function newProject() {
+  if (state.projectDirty && !confirmDiscard('the project')) return;
+  if (state.countsDirty && !confirmDiscard('your counts')) return;
+  const name = (prompt('Project name (composite profile, e.g. ZAB-12):', '') || '').trim();
+  if (!name) return;
+  const restored = offerRestore(keyProject(name), null, `project “${name}”`);
+  setProject(restored ? normalizeProject(restored) : newProjectObj(name), null);
+  state.projectDirty = true;
+  refreshAll();
+}
+
+async function openProject() {
+  if (state.projectDirty && !confirmDiscard('the project')) return;
+  if (state.countsDirty && !confirmDiscard('your counts')) return;
+  try {
+    const r = await pickJSON();
+    if (!r) return;
+    let obj = normalizeProject(JSON.parse(await r.file.text()));
+    const restored = offerRestore(keyProject(obj.project), obj, `project “${obj.project}”`);
+    const isRestored = restored !== obj;
+    obj = normalizeProject(restored);
+    setProject(obj, r.handle, r.file.name);
+    state.projectDirty = isRestored;
+    refreshAll();
+    toast(obj.sections.length ? 'Project opened. Load the section images with “Load images…”.' : 'Project opened.');
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
+function setProject(obj, handle, fileName) {
+  state.project = obj;
+  state.projectHandle = handle;
+  state.projectFileName = fileName || null;
+  state.counts = null; state.countsHandle = null; state.countsDirty = false;
+  state.images.clear(); state.views.clear();
+  state.secId = obj.sections[0] ? obj.sections[0].id : null;
+  state.selB = null; state.selV = null; state.draft = null; state.scalePts = null;
+  clearUndo();
+  const remembered = store.get(`varves:person:${obj.project}`);
+  state.person = obj.people.some(p => p.id === remembered) ? remembered : null;
+}
+
+async function saveProject(as) {
+  if (!state.project) return;
+  const errs = validatePeople();
+  if (errs) { toast(errs, 'err'); return; }
+  try {
+    const name = `${state.project.project}.project.json`;
+    const res = await saveText(JSON.stringify(state.project, null, 2) + '\n', as ? null : state.projectHandle, name);
+    if (!res.ok) return;
+    if (res.handle) state.projectHandle = res.handle;
+    state.projectDirty = false;
+    store.del(keyProject(state.project.project));
+    refreshTitle(); renderProject();
+    toast(res.how === 'saved' ? 'Project saved.' : `Project downloaded as ${name}.`);
+  } catch (err) {
+    toast('Saving failed: ' + err.message, 'err');
+  }
+}
+
+function validatePeople() {
+  const ids = state.project.people.map(p => p.id);
+  if (ids.some(id => !id)) return 'Every person needs an id.';
+  if (new Set(ids).size !== ids.length) return 'Person ids must be unique.';
+  return null;
+}
+
+async function addSections(files) {
+  if (!state.project) return;
+  for (const f of files) {
+    busy(`Loading ${f.name}…`);
+    try {
+      const img = await loadImage(f);
+      const dup = state.project.sections.find(s => s.image.sha256 === img.sha256);
+      if (dup) { toast(`${f.name} is already section ${dup.id}.`, 'err'); continue; }
+      const base = f.name.replace(/\.[^.]+$/, '');
+      let id = base, k = 2;
+      while (secById(id)) id = `${base}_${k++}`;
+      const prev = state.project.sections[state.project.sections.length - 1];
+      const sec = {
+        id,
+        image: { file: f.name, sha256: img.sha256, width: img.width, height: img.height },
+        dpi: img.dpi, dpi_source: img.dpi ? 'header' : 'missing',
+        segments: [],
+        anchors: { top_mm: prev && prev.anchors.bottom_mm != null ? prev.anchors.bottom_mm : null, bottom_mm: null },
+        drawn_by: null, modified: nowISO(),
+      };
+      state.project.sections.push(sec);
+      state.images.set(id, img);
+      if (img.dpi && img.dpiY && Math.abs(img.dpi - img.dpiY) > 0.01) toast(`${f.name}: horizontal and vertical DPI differ (${img.dpi} / ${img.dpiY}); using ${img.dpi}.`, 'err');
+      else if (!img.dpi) toast(`${f.name}: no DPI in the file — enter it in Setup.`, 'err');
+      if (!state.secId) state.secId = id;
+      touchProject();
+    } catch (err) {
+      toast(`${f.name}: ${err.message}`, 'err');
+    } finally {
+      busy(null);
+    }
+  }
+  refreshAll();
+  if (curImg()) fitView();
+}
+
+async function linkImages(files) {
+  if (!state.project) return;
+  let linked = 0;
+  for (const f of files) {
+    busy(`Loading ${f.name}…`);
+    try {
+      const img = await loadImage(f);
+      const sec = state.project.sections.find(s => s.image.sha256 === img.sha256);
+      if (!sec) {
+        const byName = state.project.sections.find(s => s.image.file === f.name);
+        toast(byName
+          ? `${f.name}: the content differs from the image recorded for section ${byName.id} (SHA-256 mismatch). Not loaded.`
+          : `${f.name} is not part of this project.`, 'err');
+        continue;
+      }
+      state.images.set(sec.id, img);
+      linked++;
+      if (sec.image.file !== f.name) toast(`${f.name} matches section ${sec.id} (recorded as ${sec.image.file}).`);
+    } catch (err) {
+      toast(`${f.name}: ${err.message}`, 'err');
+    } finally {
+      busy(null);
+    }
+  }
+  refreshAll();
+  if (curImg()) fitView();
+  if (linked) toast(`${linked} image${linked > 1 ? 's' : ''} loaded.`);
+}
+
+function moveSection(i, d) {
+  const S = state.project.sections, j = i + d;
+  if (j < 0 || j >= S.length) return;
+  [S[i], S[j]] = [S[j], S[i]];
+  touchProject(); renderProject(); renderSectionSelects();
+}
+function removeSection(i) {
+  const S = state.project.sections, sec = S[i];
+  if (!confirm(`Remove section ${sec.id} from the project? Its path and anchors are lost (the image file is not touched).`)) return;
+  S.splice(i, 1);
+  state.images.delete(sec.id);
+  if (state.secId === sec.id) state.secId = S[0] ? S[0].id : null;
+  touchProject(); refreshAll();
+}
+function renameSection(sec, newId) {
+  newId = newId.trim();
+  if (!newId || newId === sec.id) return false;
+  if (secById(newId)) { toast(`Section ${newId} already exists.`, 'err'); return false; }
+  const old = sec.id;
+  sec.id = newId;
+  if (state.images.has(old)) { state.images.set(newId, state.images.get(old)); state.images.delete(old); }
+  if (state.views.has(old)) { state.views.set(newId, state.views.get(old)); state.views.delete(old); }
+  if (state.counts && state.counts.sections[old]) { state.counts.sections[newId] = state.counts.sections[old]; delete state.counts.sections[old]; touchCounts(); }
+  for (const d of ['setup', 'counts']) for (const s of [...undo[d], ...redo[d]]) if (s.secId === old) s.secId = newId;
+  if (state.secId === old) state.secId = newId;
+  touchProject(sec);
+  return true;
+}
+
+function selectSection(id) {
+  if (state.secId && state.secId !== id) state.views.set(state.secId, { ...view });
+  state.secId = id;
+  state.selB = null; state.selV = null; state.draft = null; state.scalePts = null;
+  state.activeSeg = 0;
+  const sec = curSec();
+  if (sec && state.counts) syncCountsSection(sec);
+  const v = state.views.get(id);
+  if (v) { Object.assign(view, v); updM(); } else fitView();
+  refreshPanels(); requestDraw();
+}
+
+/* ---------------------------------------------------------------------
+   Counts actions
+   --------------------------------------------------------------------- */
+function countsReady() {
+  if (!state.project) { toast('Open a project first.', 'err'); return false; }
+  if (!state.person) { toast('Choose who you are (“I am”) first.', 'err'); return false; }
+  return true;
+}
+function newCounts() {
+  if (!countsReady()) return;
+  if (state.countsDirty && !confirmDiscard('your counts')) return;
+  let obj = newCountsObj();
+  const restored = offerRestore(keyCounts(obj.project, obj.person), null, `the counts of ${obj.person}`);
+  if (restored) obj = restored;
+  state.counts = obj; state.countsHandle = null; state.countsDirty = true;
+  undo.counts.length = 0; redo.counts.length = 0;
+  for (const sec of state.project.sections) syncCountsSection(sec);
+  refreshAll();
+}
+async function openCounts() {
+  if (!countsReady()) return;
+  if (state.countsDirty && !confirmDiscard('your counts')) return;
+  try {
+    const r = await pickJSON();
+    if (!r) return;
+    let obj = JSON.parse(await r.file.text());
+    if (!obj || obj.schema !== SCHEMA_COUNTS) throw new Error('This is not a counts file');
+    if (obj.project !== state.project.project) throw new Error(`These counts belong to project ${obj.project}, not ${state.project.project}`);
+    if (obj.person !== state.person) throw new Error(`These counts belong to ${obj.person}. Choose “I am: ${obj.person}” to open them.`);
+    const restored = offerRestore(keyCounts(obj.project, obj.person), obj, `the counts of ${obj.person}`);
+    const isRestored = restored !== obj;
+    obj = restored;
+    const notes = attachCounts(obj);
+    state.counts = obj; state.countsHandle = r.handle; state.countsDirty = isRestored;
+    undo.counts.length = 0; redo.counts.length = 0;
+    let moved = 0;
+    for (const sec of state.project.sections) if (syncCountsSection(sec)) moved++;
+    if (!isRestored && moved === 0) state.countsDirty = false;
+    refreshAll();
+    toast(notes.length ? notes.join(' ') : 'Counts opened.', notes.length ? 'err' : '');
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+/* Match count sections to project sections by id, or by image hash if renamed. */
+function attachCounts(obj) {
+  const notes = [];
+  const out = {};
+  for (const [id, cs] of Object.entries(obj.sections || {})) {
+    let sec = secById(id);
+    if (sec && cs.image_sha256 && cs.image_sha256 !== sec.image.sha256) notes.push(`Section ${id}: the image has changed since counting.`);
+    if (!sec) {
+      sec = state.project.sections.find(s => s.image.sha256 === cs.image_sha256);
+      if (sec) notes.push(`Section ${id} is now called ${sec.id}.`);
+    }
+    if (!sec) { notes.push(`Counts for unknown section ${id} are kept but not shown.`); out[id] = cs; continue; }
+    out[sec.id] = cs;
+  }
+  obj.sections = out;
+  return notes;
+}
+async function saveCounts() {
+  if (!state.counts) { toast('Nothing to save yet — start a new count.', 'err'); return; }
+  for (const sec of state.project.sections) {
+    const cs = countsSec(sec.id, false);
+    if (!cs) continue;
+    syncCountsSection(sec);
+    for (const it of withS(sec, cs)) { it.b.seg = it.seg; it.b.s_px = round(it.s, 2); }
+    cs.image_sha256 = sec.image.sha256;
+    cs.path_sig = pathSig(sec);
+  }
+  try {
+    const name = `${state.counts.project}.${state.counts.person}.counts.json`;
+    const res = await saveText(JSON.stringify(state.counts, null, 2) + '\n', state.countsHandle, name);
+    if (!res.ok) return;
+    if (res.handle) state.countsHandle = res.handle;
+    state.countsDirty = false;
+    store.del(keyCounts(state.counts.project, state.counts.person));
+    refreshTitle(); renderCount();
+    toast(res.how === 'saved' ? 'Counts saved.' : `Counts downloaded as ${name}.`);
+  } catch (err) {
+    toast('Saving failed: ' + err.message, 'err');
+  }
+}
+
+const csvCell = v => {
+  const s = v == null ? '' : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+function countsCSV() {
+  const rows = [['project', 'section', 'person', 'seq', 'boundary_id', 'segment', 's_mm', 'core_depth_mm', 'x_px', 'y_px']];
+  for (const sec of state.project.sections) {
+    const cs = countsSec(sec.id, false);
+    if (!cs) continue;
+    const { L } = pathInfo(sec), k = mmPerPx(sec);
+    withS(sec, cs).forEach((it, i) => {
+      const d = coreDepth(sec, it.s, L);
+      rows.push([state.counts.project, sec.id, state.counts.person, i + 1, it.b.id, it.seg + 1,
+        k ? (it.s * k).toFixed(4) : '', d != null ? d.toFixed(4) : '', it.b.x, it.b.y]);
+    });
+  }
+  return rows.map(r => r.map(csvCell).join(',')).join('\n') + '\n';
+}
+function exportCountsCSV() {
+  if (!state.counts) { toast('No counts to export.', 'err'); return; }
+  const missing = state.project.sections.filter(s => countsSec(s.id, false) && (!(s.dpi > 0) || !anchored(s))).map(s => s.id);
+  download(countsCSV(), `${state.counts.project}.${state.counts.person}.counts.csv`, 'text/csv');
+  if (missing.length) toast(`Exported. Without DPI or depth anchors (empty mm / depth columns): ${missing.join(', ')}`, 'err');
+  else toast('CSV exported.');
+}
+
+/* ---------------------------------------------------------------------
+   Rendering panels
+   --------------------------------------------------------------------- */
+function refreshTitle() {
+  const dirty = state.projectDirty || state.countsDirty;
+  document.title = (dirty ? '• ' : '') + 'Varve counter' + (state.project ? ' — ' + state.project.project : '');
+}
+
+function renderPersonSel() {
+  const sel = $('personSel');
+  const people = state.project ? state.project.people : [];
+  sel.innerHTML = '<option value="">— choose —</option>' +
+    people.filter(p => p.id).map(p => `<option value="${esc(p.id)}">${esc(p.id)}${p.name ? ' · ' + esc(p.name) : ''}</option>`).join('');
+  sel.value = state.person || '';
+  sel.disabled = !state.project;
+}
+
+function renderProject() {
+  const P = state.project;
+  $('projBody').hidden = !P; $('projBody2').hidden = !P;
+  $('btnSave').disabled = !P; $('btnSaveAs').disabled = !P;
+  if (!P) return;
+  $('projName').value = P.project;
+  $('projInfo').textContent = (state.projectHandle ? `File: ${state.projectHandle.name}` : state.projectFileName ? `Opened from ${state.projectFileName}` : 'Not saved yet') +
+    (state.projectDirty ? ' · unsaved changes' : '');
+
+  $('peopleList').innerHTML = P.people.map((p, i) => `
+    <div class="person">
+      <input type="text" data-pi="${i}" data-f="id" value="${esc(p.id)}" placeholder="id">
+      <input type="text" data-pi="${i}" data-f="name" value="${esc(p.name || '')}" placeholder="name">
+      <button class="small" data-prm="${i}" title="Remove">✕</button>
+    </div>`).join('') || '<p class="hint" style="margin:0">No people yet.</p>';
+
+  $('secList').innerHTML = P.sections.map((s, i) => {
+    const img = state.images.has(s.id);
+    const { L } = pathInfo(s);
+    const k = mmPerPx(s);
+    const a = s.anchors;
+    const depth = a.top_mm != null || a.bottom_mm != null ? `${fmt(a.top_mm == null ? null : a.top_mm / 10, 2)}–${fmt(a.bottom_mm == null ? null : a.bottom_mm / 10, 2)} cm` : 'no depths';
+    const st = stretchFactor(s);
+    return `<div class="item${s.id === state.secId ? ' sel' : ''}">
+      <div class="top">
+        <span class="name" data-sel="${esc(s.id)}" title="${esc(s.image.file)}">${i + 1}. ${esc(s.id)}</span>
+        <span class="tag ${img ? 'ok' : 'warn'}">${img ? 'image ✓' : 'image not loaded'}</span>
+        <button class="small" data-up="${i}" title="Move up">↑</button>
+        <button class="small" data-dn="${i}" title="Move down">↓</button>
+        <button class="small" data-rm="${i}" title="Remove">✕</button>
+      </div>
+      <div class="sub">${depth} · ${s.dpi ? s.dpi + ' dpi' : 'no DPI'} · ${s.segments.length} segment${s.segments.length === 1 ? '' : 's'}${L && k ? ', ' + fmt(L * k, 2) + ' mm' : ''}${st ? ' · stretch ' + fmt(st, 3) : ''}</div>
+    </div>`;
+  }).join('') || '<p class="hint" style="margin:0">No sections yet.</p>';
+
+  const issues = continuity();
+  $('contin').innerHTML = P.sections.length
+    ? (issues.length ? issues.map(([k, m]) => `<div class="msg ${k}">${esc(m)}</div>`).join('') : '<div class="msg ok">Depths are continuous: every path ends where the next one starts.</div>')
+    : '';
+}
+
+function renderSectionSelects() {
+  const opts = state.project ? state.project.sections.map(s => `<option value="${esc(s.id)}">${esc(s.id)}</option>`).join('') : '';
+  for (const id of ['secSelSetup', 'secSelCount']) {
+    const el = $(id);
+    el.innerHTML = opts || '<option value="">—</option>';
+    el.value = state.secId || '';
+    el.disabled = !opts;
+  }
+}
+
+function renderSetup() {
+  const sec = curSec();
+  $('setupBody').hidden = !sec;
+  if (!sec) return;
+  const img = state.images.get(sec.id);
+  $('secIdIn').value = sec.id;
+  $('secImgInfo').innerHTML = `${esc(sec.image.file)} · ${sec.image.width} × ${sec.image.height} px<br>SHA-256 ${esc(sec.image.sha256.slice(0, 16))}…` +
+    (img ? '' : '<br><b>Image not loaded.</b>') +
+    (sec.drawn_by ? `<br>Path by ${esc(sec.drawn_by)}, ${esc((sec.modified || '').replace('T', ' ').replace('Z', ' UTC'))}` : '');
+  $('secDpi').value = sec.dpi ?? '';
+  $('secDpiSrc').textContent = { header: 'image header', manual: 'entered by hand', scale_bar: 'scale bar', missing: 'missing' }[sec.dpi_source] || sec.dpi_source || '—';
+  document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === state.tool));
+  $('toolHint').textContent = state.tool === 'draw'
+    ? 'Click to add points along the counting line, top → bottom. Double-click, Enter or right-click finishes the segment; Esc cancels. The next segment starts on the same lamina (pink guide). Shift+click ignores the guide.'
+    : state.tool === 'scale' ? 'Calibrating from a scale bar.'
+    : 'Drag a point to move it; right-click or Delete removes it. Drag the image to pan.';
+  const { L } = pathInfo(sec);
+  const k = mmPerPx(sec);
+  $('segList').innerHTML = sec.segments.map((g, i) => `
+    <div class="item"><div class="top">
+      <span class="name" style="color:${i % 2 ? '#a68a00' : '#008ea3'}">Segment ${i + 1}</span>
+      <span class="tag">${g.points.length} points · ${k ? fmt(segLength(g) * k, 2) + ' mm' : Math.round(segLength(g)) + ' px'}</span>
+      <button class="small" data-segrm="${i}" title="Delete segment">✕</button>
+    </div></div>`).join('') || '<p class="hint" style="margin:0">No path yet. Choose “Draw segment”.</p>';
+  const cs = state.counts && countsSec(sec.id, false);
+  $('setupWarn').innerHTML = cs && cs.boundaries.length
+    ? `<div class="msg warn">Your open counts have ${cs.boundaries.length} boundaries in this section. Changing the path re-attaches them to the nearest segment.</div>` : '';
+  const a = sec.anchors;
+  $('ancTop').value = a.top_mm != null ? round(a.top_mm / 10, 6) : '';
+  $('ancBot').value = a.bottom_mm != null ? round(a.bottom_mm / 10, 6) : '';
+  const st = stretchFactor(sec);
+  const rows = [
+    ['Path length', L ? `${Math.round(L)} px${k ? ' · ' + fmt(L * k, 3) + ' mm' : ''}` : '—'],
+    ['Anchored length', anchored(sec) ? fmt(a.bottom_mm - a.top_mm, 3) + ' mm' : '—'],
+    ['Stretch factor', st ? fmt(st, 4) + (Math.abs(st - 1) > 0.15 ? ' ⚠ check DPI and depths' : '') : '—'],
+  ];
+  $('pathStats').innerHTML = rows.map(([t, v]) => `<dt>${t}</dt><dd>${v}</dd>`).join('');
+  renderScale();
+}
+
+function renderScale() {
+  const on = state.tool === 'scale';
+  $('scaleBox').hidden = !on;
+  if (!on) return;
+  const p = state.scalePts;
+  $('scalePx').textContent = p && p.length === 2 ? fmt(Math.hypot(p[1][0] - p[0][0], p[1][1] - p[0][1]), 1) + ' px' : p && p.length === 1 ? 'click the other end' : 'click one end';
+}
+
+function renderCount() {
+  const C = state.counts;
+  const ok = !!(state.project && state.person);
+  $('cNew').disabled = !ok; $('cOpen').disabled = !ok;
+  $('cSave').disabled = !C; $('cCsv').disabled = !C;
+  $('cInfo').textContent = !state.project ? 'Open a project first.'
+    : !state.person ? 'Choose who you are (“I am”) at the top.'
+    : !C ? `Start a new count, or open your counts file (${state.project.project}.${state.person}.counts.json).`
+    : `Counter ${C.person}` + (state.countsHandle ? ` · ${state.countsHandle.name}` : '') + (state.countsDirty ? ' · unsaved changes' : ' · saved');
+  renderCountStats();
+}
+
+function renderCountStats() {
+  const sec = curSec(), C = state.counts;
+  if (!sec || !C) { $('countStats').innerHTML = ''; return; }
+  const cs = countsSec(sec.id, false);
+  const list = cs ? withS(sec, cs) : [];
+  const { L } = pathInfo(sec), k = mmPerPx(sec), st = stretchFactor(sec);
+  let total = 0;
+  for (const s of state.project.sections) { const c = countsSec(s.id, false); if (c) total += c.boundaries.length; }
+  const rows = [
+    ['This section', `${list.length} boundaries`],
+    ['All sections', `${total} boundaries`],
+  ];
+  const i = list.findIndex(it => it.b.id === state.selB);
+  if (i >= 0) {
+    const it = list[i];
+    const d = coreDepth(sec, it.s, L);
+    rows.push(['Selected', `#${i + 1} (${it.b.id})${d != null ? ' · ' + fmt(d / 10, 4) + ' cm' : ''}`]);
+    if (i > 0 && k) {
+      const t = (it.s - list[i - 1].s) * k;
+      rows.push(['Varve above it', `${fmt(t, 3)} mm` + (st ? ` · corrected ${fmt(t * st, 3)} mm` : '')]);
+    } else if (i === 0) rows.push(['Varve above it', 'starts in the previous section']);
+  }
+  if (list.length > 1 && k) rows.push(['Mean spacing', fmt((list[list.length - 1].s - list[0].s) / (list.length - 1) * k, 3) + ' mm']);
+  rows.push(['Path', L ? (k ? fmt(L * k, 2) + ' mm' : Math.round(L) + ' px') + ` · ${sec.segments.length} segment${sec.segments.length === 1 ? '' : 's'}` : 'not drawn']);
+  $('countStats').innerHTML = rows.map(([t, v]) => `<dt>${t}</dt><dd>${esc(v)}</dd>`).join('');
+}
+
+function refreshPanels() {
+  renderPersonSel(); renderProject(); renderSectionSelects(); renderSetup(); renderCount();
+}
+function refreshAll() {
+  refreshPanels(); refreshTitle(); setCursor(); requestDraw();
+}
+
+function setTab(tab) {
+  if (state.draft) state.draft = null;
+  if (state.tool === 'scale') { state.tool = 'edit'; state.scalePts = null; }
+  state.tab = tab;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  for (const t of ['project', 'setup', 'count']) $('tab-' + t).hidden = t !== tab;
+  const sec = curSec();
+  if (tab === 'count' && sec && state.counts) syncCountsSection(sec);
+  refreshAll();
+}
+function setTool(t) {
+  state.tool = t;
+  state.draft = null;
+  if (t !== 'scale') state.scalePts = null;
+  renderSetup(); setCursor(); requestDraw();
+}
+
+/* ---------------------------------------------------------------------
+   Wiring
+   --------------------------------------------------------------------- */
+document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => { if (!b.disabled) setTab(b.dataset.tab); }));
+$('personSel').addEventListener('change', e => {
+  const v = e.target.value || null;
+  if (state.counts && state.counts.person !== v) {
+    if (state.countsDirty && !confirmDiscard(`the counts of ${state.counts.person}`)) { e.target.value = state.person || ''; return; }
+    state.counts = null; state.countsHandle = null; state.countsDirty = false;
+    undo.counts.length = 0; redo.counts.length = 0;
+  }
+  state.person = v;
+  if (state.project && v) store.set(`varves:person:${state.project.project}`, v);
+  refreshAll();
+});
+
+$('btnNew').addEventListener('click', newProject);
+$('btnOpen').addEventListener('click', openProject);
+$('btnSave').addEventListener('click', () => saveProject(false));
+$('btnSaveAs').addEventListener('click', () => saveProject(true));
+$('projName').addEventListener('change', e => {
+  const v = e.target.value.trim();
+  if (!v) { e.target.value = state.project.project; return; }
+  if (state.counts && !confirm('Renaming the project makes existing counts files belong to the old name. Continue?')) { e.target.value = state.project.project; return; }
+  state.project.project = v;
+  if (state.counts) { state.counts.project = v; touchCounts(); }
+  touchProject(); refreshAll();
+});
+$('btnAddPerson').addEventListener('click', () => {
+  const n = state.project.people.length + 1;
+  let id = 'P' + n, k = n;
+  while (state.project.people.some(p => p.id === id)) id = 'P' + (++k);
+  state.project.people.push({ id, name: '' });
+  touchProject(); refreshPanels();
+});
+$('peopleList').addEventListener('change', e => {
+  const i = e.target.dataset.pi;
+  if (i == null) return;
+  const p = state.project.people[+i];
+  if (e.target.dataset.f === 'id') {
+    const v = e.target.value.trim().replace(/[^A-Za-z0-9_-]/g, '');
+    if (!v || state.project.people.some((q, j) => j !== +i && q.id === v)) { toast('Ids must be unique and use letters, digits, - or _.', 'err'); e.target.value = p.id; return; }
+    if (state.person === p.id) state.person = v;
+    p.id = v;
+  } else p.name = e.target.value.trim();
+  touchProject(); renderPersonSel(); renderProject();
+});
+$('peopleList').addEventListener('click', e => {
+  const i = e.target.dataset.prm;
+  if (i == null) return;
+  const p = state.project.people[+i];
+  if (!confirm(`Remove ${p.id}${p.name ? ' (' + p.name + ')' : ''} from the project?`)) return;
+  state.project.people.splice(+i, 1);
+  if (state.person === p.id) { state.person = null; state.counts = null; state.countsDirty = false; }
+  touchProject(); refreshAll();
+});
+$('addImgs').addEventListener('change', e => { const f = [...e.target.files]; e.target.value = ''; addSections(f); });
+$('linkImgs').addEventListener('change', e => { const f = [...e.target.files]; e.target.value = ''; linkImages(f); });
+$('secList').addEventListener('click', e => {
+  const t = e.target.dataset;
+  if (t.sel) selectSection(t.sel);
+  else if (t.up) moveSection(+t.up, -1);
+  else if (t.dn) moveSection(+t.dn, 1);
+  else if (t.rm) removeSection(+t.rm);
+});
+for (const id of ['secSelSetup', 'secSelCount']) $(id).addEventListener('change', e => { if (e.target.value) selectSection(e.target.value); });
+
+$('secIdIn').addEventListener('change', e => {
+  const sec = curSec();
+  if (!renameSection(sec, e.target.value)) e.target.value = sec.id;
+  refreshAll();
+});
+$('secDpi').addEventListener('change', e => {
+  const sec = curSec(), v = parseFloat(e.target.value);
+  if (!(v > 0)) { e.target.value = sec.dpi ?? ''; return; }
+  sec.dpi = round(v, 3); sec.dpi_source = 'manual';
+  touchProject(sec); refreshAll();
+});
+/* Anchors: a new bottom fills an empty top of the next section, and a new
+   top fills an empty bottom of the previous one (paths must meet, 3.3). */
+function anchorInput(field) {
+  return e => {
+    const sec = curSec(), raw = e.target.value.trim();
+    let v = raw === '' ? null : round(parseFloat(raw) * 10, 6);
+    if (v != null && !isFinite(v)) v = null;
+    sec.anchors[field] = v;
+    const S = state.project.sections, i = S.indexOf(sec);
+    const nb = field === 'bottom_mm' ? S[i + 1] : S[i - 1];
+    const nf = field === 'bottom_mm' ? 'top_mm' : 'bottom_mm';
+    if (v != null && nb && nb.anchors[nf] == null) {
+      nb.anchors[nf] = v;
+      touchProject(nb);
+      toast(`Also set the ${nf === 'top_mm' ? 'path start' : 'path end'} of ${nb.id} to ${round(v / 10, 6)} cm.`);
+    }
+    touchProject(sec); refreshAll();
+  };
+}
+$('ancTop').addEventListener('change', anchorInput('top_mm'));
+$('ancBot').addEventListener('change', anchorInput('bottom_mm'));
+document.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+$('segList').addEventListener('click', e => { const i = e.target.dataset.segrm; if (i != null) deleteSegment(+i); });
+$('btnScale').addEventListener('click', () => { state.scalePts = null; setTool('scale'); });
+$('scaleCancel').addEventListener('click', () => setTool('edit'));
+$('scaleApply').addEventListener('click', () => {
+  const p = state.scalePts, mm = parseFloat($('scaleMm').value);
+  if (!p || p.length !== 2) { toast('Click both ends of the scale bar first.', 'err'); return; }
+  if (!(mm > 0)) { toast('Enter the known length in mm.', 'err'); return; }
+  const sec = curSec();
+  sec.dpi = round(Math.hypot(p[1][0] - p[0][0], p[1][1] - p[0][1]) / mm * MM_PER_IN, 3);
+  sec.dpi_source = 'scale_bar';
+  touchProject(sec); setTool('edit'); refreshAll();
+  toast(`DPI set to ${sec.dpi} from the scale bar.`);
+});
+
+$('cNew').addEventListener('click', newCounts);
+$('cOpen').addEventListener('click', openCounts);
+$('cSave').addEventListener('click', saveCounts);
+$('cCsv').addEventListener('click', exportCountsCSV);
+$('showNums').addEventListener('change', e => { state.showNums = e.target.checked; requestDraw(); });
+
+$('zFit').addEventListener('click', fitView);
+$('zIn').addEventListener('click', () => zoomAt(W() / 2, H() / 2, 1.25));
+$('zOut').addEventListener('click', () => zoomAt(W() / 2, H() / 2, 0.8));
+$('zRot').addEventListener('click', rotateView);
+$('fB').addEventListener('input', e => { state.filter.b = +e.target.value; requestDraw(); });
+$('fC').addEventListener('input', e => { state.filter.c = +e.target.value; requestDraw(); });
+$('fReset').addEventListener('click', () => { state.filter = { b: 100, c: 100 }; $('fB').value = 100; $('fC').value = 100; requestDraw(); });
+
+window.addEventListener('beforeunload', e => {
+  if (state.projectDirty || state.countsDirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+refreshAll();
+</script>
+</body>
+</html>
