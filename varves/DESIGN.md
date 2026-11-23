@@ -47,8 +47,7 @@ Module 3  Thickness ─────────► thickness file: traced horizo
 | **s** | Position along the path: distance from the path start, with all segments joined into one length. |
 | **Anchors** | Core depth of the path start and of the path end, in the composite profile. |
 | **Person** | Someone who draws paths, counts, reviews or measures. Identified by a short id (`P1`, `MZ`, …). |
-| **Crack** | A void crossing the section, marked as a pair (upper and lower edge) and removed from the path length. |
-| **s_eff** | `s` with crack widths removed. Used for all depths and comparisons. |
+| **Crack** | A void in the section, marked in Module 3 as a pair (upper and lower edge) and subtracted from thickness. |
 | **Boundary** | A click marking the end of a varve, placed on the path. |
 | **Horizon** | A short polyline tracing one final varve boundary sideways across the section (Module 3). |
 
@@ -80,17 +79,19 @@ Module 3  Thickness ─────────► thickness file: traced horizo
 
 The person drawing the path enters the core depth of the path start
 (`d_top`) and the path end (`d_bottom`). Every position on the path is mapped
-linearly, using the **effective** position and length, i.e. with cracks
-removed (see 3.5):
+linearly:
 
 ```
-core_depth = d_top + (s_eff / L_eff) × (d_bottom − d_top)
+core_depth = d_top + (s / L) × (d_bottom − d_top)
 ```
+
+Once cracks are measured in Module 3, this is refined by leaving out the crack
+widths (see 3.5).
 
 - The stretch is spread evenly over the whole path. This corrects for
   shrinkage during freeze-drying and impregnation, and for small errors of
   correlation.
-- **Stretch factor** = `(d_bottom − d_top) / (L_eff in mm from DPI)`. It is shown as
+- **Stretch factor** = `(d_bottom − d_top) / (L in mm from DPI)`. It is shown as
   a sanity check (values far from 1 suggest a wrong DPI or wrong anchors).
 - **Between sections** the same ownership rule applies: section *n* owns
   `[d_top, d_bottom)`, and its `d_bottom` must equal `d_top` of section *n + 1*.
@@ -110,26 +111,22 @@ The top of the record is the path start of the first section. So:
 ### 3.5 Cracks
 
 Cracks (opened during freeze-drying or impregnation) often cross the whole
-section, so going around them with extra segments is not practical. Instead,
-a crack is marked where the path crosses it and its width is **removed from
-the path length**.
+section, so going around them with extra segments is not practical. They are
+**not marked during setup or counting**. They are handled in Module 3 (see
+7.3), because that is where they matter:
 
-- **Crack tool:** two clicks, always a pair: the upper edge and the lower edge
-  of the crack, both projected onto the path. The interval `[s_upper, s_lower)`
-  is a crack.
-- Cracks are part of the **section setup**, stored in the project file next
-  to the segments, so every counter works with the same cracks and their
-  positions stay comparable in Module 2.
-- **Effective position:** `s_eff = s − (total crack width above s)`, and
-  `L_eff = L − (total crack width)`. All depths and thicknesses use `s_eff`.
-  Cracks therefore no longer inflate the stretch factor.
-- **Boundary in a crack:** cracks often open along a lamina boundary. A
-  boundary clicked inside a crack is snapped to the crack's collapsed position
-  (its `s_eff` is the same for both edges), so it is a normal boundary, not
-  an error.
-- Cracks are drawn as a shaded band across the path, so counters can see
-  them, but cannot change them. If a counter finds an unmarked crack, the
-  setup has to be corrected and saved as a new project version.
+- **Counting and Method C do not need them.** All counters click on the same
+  image along the same path, so a crack shifts everyone's positions equally,
+  and matching in Module 2 is unaffected. A counter simply clicks a boundary
+  where they see it, including at the edge of a crack.
+- **Thickness needs them.** A crack inside a varve directly inflates its
+  thickness. This is the large, local error.
+- **Depth is only slightly affected.** A crack adds its width to the path
+  length; the linear stretch then spreads that error over the section. When
+  Module 3 has measured the cracks where they cross the path, depths are
+  refined: `s_eff = s − (crack width above s)`, `L_eff = L − (total crack
+  width)`, and `core_depth = d_top + (s_eff / L_eff) × (d_bottom − d_top)`.
+  The stretch factor is recomputed from `L_eff` in the same way.
 
 ## 4. People
 
@@ -147,9 +144,8 @@ the path length**.
 Goal: "do I see a varve here?", one click per boundary, along the path.
 
 1. **Set up (once per section, by one person):** load the image, check the
-   DPI, draw the segments, mark the cracks, enter the depth anchors. This is
-   saved in the project file, so all counters work on exactly the same
-   geometry.
+   DPI, draw the segments, enter the depth anchors. This is saved in the
+   project file, so all counters work on exactly the same geometry.
 2. **Count (each counter, independently):** load the project and the image,
    choose your id, click boundaries.
    - Clicks are projected onto the nearest point of the **active segment**,
@@ -194,8 +190,8 @@ boundary. This is done in two steps.
 
 **Automatic proposal**
 
-- Work per section, on `s_eff`. All counters used the same path and the same
-  cracks, so their positions are directly comparable.
+- Work per section, on `s`. All counters used the same path on the same
+  image, so their positions are directly comparable.
 - **Local tolerance:** for each counter, take a running median of the spacing
   between their boundaries (window of about 10 boundaries). Two clicks may be
   matched only if they are closer than `tolerance_fraction × local thickness`.
@@ -262,9 +258,8 @@ with `method = "line"` so the two modes are never mixed silently.
 
 ### 7.3 Cracks in Module 3
 
-The crack tool works the same way as in setup: it **always produces a pair**,
-an upper edge and a lower edge. Here, the edges follow the crack sideways, as
-two short horizons.
+The crack tool **always produces a pair**: an upper edge and a lower edge.
+The edges are traced sideways, as two short horizons.
 
 - **Crack inside a varve:** at each measuring position the crack width (the
   shortest distance between its edges) is subtracted from the thickness, and
@@ -277,6 +272,10 @@ two short horizons.
   neither varve.
 - Each measurement records the subtracted crack width, so it can be checked
   later.
+- **Where a crack crosses the path**, its width along the path is stored too.
+  This is what refines the depths and the stretch factor (3.5). Boundaries
+  already counted keep their depth order; only their depth values shift
+  slightly.
 
 ### 7.4 Units
 
@@ -294,10 +293,10 @@ to the wrong image.
 
 | File | Written by | Content |
 |---|---|---|
-| `<project>.project.json` | setup | people, sections, images, DPI, segments, cracks, anchors, settings |
+| `<project>.project.json` | setup | people, sections, images, DPI, segments, anchors, settings |
 | `<project>.<person>.counts.json` | Module 1 | one counter's boundaries for all sections |
 | `<project>.chronology.json` | Module 2 | matching parameters, groups, manual edits, result |
-| `<project>.thickness.json` | Module 3 | horizons, measurements |
+| `<project>.thickness.json` | Module 3 | horizons, cracks, measurements |
 
 One counts file per counter for the whole project keeps the number of files
 small, and keeps counters independent.
@@ -325,9 +324,6 @@ small, and keeps counters independent.
       "dpi_source": "header",
       "segments": [
         { "id": 1, "points": [[120, 940], [9300, 960]] }
-      ],
-      "cracks": [
-        { "id": "c01", "s_upper_px": 3120.4, "s_lower_px": 3166.9 }
       ],
       "anchors": { "top_mm": 0.0, "bottom_mm": 96.0 },
       "drawn_by": "P1",
@@ -360,9 +356,9 @@ small, and keeps counters independent.
 
 | Export | One row per | Columns |
 |---|---|---|
-| `counts.csv` | click | `project, section, person, boundary_id, s_mm, s_eff_mm, core_depth_mm, x_px, y_px` |
-| `cracks.csv` | crack | `project, section, crack_id, s_upper_mm, s_lower_mm, width_mm, core_depth_mm` |
+| `counts.csv` | click | `project, section, person, boundary_id, s_mm, core_depth_mm, x_px, y_px` |
 | `chronology.csv` | matched group | `project, section, group_id, varve_no, included, n_agree, n_counters, persons, core_depth_mm, top_mm, bottom_mm, unc_pos_cum, unc_neg_cum` |
+| `cracks.csv` | crack | `project, section, crack_id, crosses_path, s_upper_mm, s_lower_mm, width_mm, core_depth_mm` |
 | `thickness.csv` | measurement | `project, section, varve_no, method, position_no, x_px, thickness_px, crack_px, thickness_mm, thickness_corr_mm, measured_by` |
 
 `varve_no` is empty for rejected groups. Summaries (mean, SD, n per varve) are
@@ -382,17 +378,16 @@ left to R.
 ## 11. Plan
 
 1. **Version 1:** project setup (people, sections, DPI, segments with the
-   joint guide, cracks, anchors, gap/overlap check) + Module 1 (blind
-   counting) + counts JSON/CSV.
+   joint guide, anchors, gap/overlap check) + Module 1 (blind counting) +
+   counts JSON/CSV.
 2. **Version 2:** Module 2 (matching, review, Method C, chronology CSV).
-3. **Version 3:** Module 3 (horizons, measurements, thickness CSV).
+3. **Version 3:** Module 3 (horizons, cracks, measurements, depth refinement,
+   thickness and cracks CSV).
 
 ## 12. Open questions
 
-- Cracks are fixed in setup (3.5). Is that acceptable, or should a counter be
-  able to mark a crack they find while counting? This would have to be
-  reconciled between counters in Module 2.
+None at the moment.
 
 Decided: traced horizons are the Module 3 default, with quick lines as the
 fallback; no "uncertain" flag in Module 1; the Method C threshold is always a
-strict majority.
+strict majority; cracks are marked only in Module 3.
