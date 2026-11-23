@@ -5,7 +5,8 @@ open it in a browser (Chrome or Edge recommended), nothing to install, works off
 and images never leave the computer.
 
 The full design (three modules, Method C, file formats) is in [DESIGN.md](DESIGN.md).
-**Version 1** contains the project setup and Module 1 (blind counting).
+**Version 4** contains everything in the design: project setup, Module 1 (blind counting), Module 2
+(Method C), Module 3 (cracks, final varve depths, thickness) and image export.
 
 ## Workflow
 
@@ -39,6 +40,74 @@ The full design (three modules, Method C, file formats) is in [DESIGN.md](DESIGN
 4. **Save** → `ZAB-12.P1.counts.json` (one file per counter, all sections).
    **Export CSV** → one row per boundary with its position and core depth.
 
+### 4. Decide (Module 2, Method C — after all counts are finished)
+
+1. Open the project and images, then **2 Decide → Load counts files…** and choose the
+   counts files of all counters at once.
+2. **Match automatically.** Boundaries of different counters within the tolerance
+   (default 0.5 × the local varve thickness) are matched into groups, in order.
+3. Each group is decided by majority:
+   - all counters → a varve;
+   - a majority → a varve, negative uncertainty +1;
+   - a minority → not a varve, positive uncertainty +1.
+   Uncertainties are summed from the top of the record down.
+4. **Review:** **Next ▸** / **◂ Prev** (or <kbd>.</kbd> / <kbd>,</kbd>) jump through the flagged
+   groups (disagreements, members far apart, new boundaries). On the image every counter has
+   its own track (coloured dots) and matched marks are linked (green = all, yellow = majority,
+   red ring = rejected).
+   - Click a mark to select its group; **Shift+click** a mark of another group to merge them.
+   - **Detach (X)** takes the selected boundary out of its group.
+   - **Checked (C)** marks the group as reviewed.
+   The decision itself always follows the majority rule and cannot be changed by hand.
+5. **Save** → `ZAB-12.chronology.json` (matching, edits and settings).
+   **Export CSV** → one row per group: varve number, depths, cumulative +/− uncertainty.
+
+### 5. Final depths (Module 3, step 1)
+
+1. **3 Final → Open chronology…** (the file saved in 2 Decide), or **Take from 2 Decide** in
+   the same session. The counts files are not needed.
+2. In each section, where a crack crosses the path, click its **upper edge** and then its
+   **lower edge**. The crack width is left out of the depths; drag an edge to adjust it,
+   right-click or Delete to remove it.
+3. Tick **All cracks on the path are marked in this section** when a section is done
+   (also when it has no cracks).
+4. **Save** → `ZAB-12.thickness.json` (Module 3 file).
+   **Export varves CSV** → one row per varve: varve number, top and bottom core depth
+   (crack-corrected), cumulative +/− uncertainty. **Export cracks CSV** lists the cracks.
+
+### 6. Varve thickness (Module 3, step 2)
+
+1. In **3 Final** choose **2 · Horizons**. Select a boundary (click its mark on the path, or
+   **◂ / ▸ Boundary**, keys <kbd>[</kbd> <kbd>]</kbd>).
+2. Click a few points along that lamina on both sides of the path, then Enter (or
+   double-click / right-click). The mark on the path is included; the next boundary is
+   selected automatically.
+3. Every varve with horizons at its top and base gets its thickness at 3 positions
+   (shortest distance between the horizons; the number is a setting) and an area mean.
+4. **Cracks:**
+   - along a boundary: tick *Crack along this boundary* and trace the upper, then the lower edge;
+   - inside a varve: **Cracks in varves**, trace the upper edge (Enter), then the lower edge (Enter).
+   Their widths are subtracted.
+5. **Quick lines** (fallback for simple laminae): click the base, then the top of a varve;
+   **Crack on line (K)** + two clicks marks a crack on the selected line.
+6. **Export thickness CSV** → one row per measurement (`horizon`, `horizon_area` or `line`),
+   in px, mm and mm corrected for the stretch.
+
+The first varve of each section cannot be measured with horizons (its top is in the previous
+image); use a quick line there.
+
+### Export an image
+
+**Export…** (top right, or <kbd>E</kbd>) saves the current section with whatever is marked at
+that moment, as a PNG with the scan DPI written into the file. A live preview shows the result.
+
+- Default: the **whole section at full resolution**; tick **Current view only** for exactly
+  what is on screen.
+- Layers (path, marks, numbers, labels), brightness/contrast, a scale bar, a caption strip
+  (project, section, counter, date, depths) and the mark size can be set.
+- In **1 Count** only your own boundaries are drawn; in **2 Decide** all counters, the
+  matching and varve numbers; in **Setup** only the path.
+
 Unsaved work is also kept in the browser and offered back the next time the same file is
 opened, but the JSON files are the real record.
 
@@ -50,5 +119,4 @@ later, in Module 3.
 
 ## Not yet
 
-- Module 2: matching the counters' boundaries and Method C (version 2).
-- Module 3: cracks, final varve depths, thickness (versions 3–4).
+- Testing on real scans and real counts.

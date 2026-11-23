@@ -61,6 +61,9 @@
   .item .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
   .person { display: grid; grid-template-columns: 80px 1fr auto; gap: 6px; align-items: center; }
   .tag { font-size: 11px; padding: 1px 6px; border-radius: 9px; background: #e7ebef; color: var(--muted); white-space: nowrap; }
+  .chip { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; border: 1px solid rgba(0,0,0,.35); vertical-align: -1px; }
+  .legend { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; font-size: 12.5px; margin-top: 8px; align-items: center; }
+  .legend i { display: inline-block; width: 22px; height: 4px; border-radius: 2px; }
   .tag.ok { background: #dff3e5; color: var(--ok); }
   .tag.warn { background: var(--warn-bg); color: var(--warn-ink); }
 
@@ -104,6 +107,15 @@
   }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .toast.err { background: var(--err); }
+  .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .dlg { background: var(--panel); border-radius: 10px; width: min(1120px, 100%); max-height: 100%; overflow: auto; padding: 14px 16px; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+  .dlg h2 { margin: 0 0 10px; font-size: 16px; }
+  .dlg h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 2px; }
+  .dlg-body { display: grid; grid-template-columns: 270px 1fr; gap: 16px; }
+  .pv { background: var(--stage); border-radius: 6px; display: flex; align-items: center; justify-content: center; min-height: 260px; overflow: hidden; }
+  .pv canvas { display: block; }
+  #exInfo { white-space: pre-line; word-break: break-all; }
+  @media (max-width: 760px) { .dlg-body { grid-template-columns: 1fr; } }
   .busy { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); color: #fff; font-size: 15px; }
 </style>
 </head>
@@ -111,14 +123,14 @@
 
 <aside class="panel">
   <div class="panel-top">
-    <h1>Varve counter <small>v1 · setup + counting</small></h1>
+    <h1>Varve counter <small>v4</small></h1>
     <label class="field"><span>I am</span><select id="personSel"></select></label>
     <div class="tabs" id="tabs">
       <button data-tab="project" class="active">Project</button>
       <button data-tab="setup">Setup</button>
       <button data-tab="count">1 Count</button>
-      <button data-tab="decide" disabled title="Module 2 (Method C) comes in version 2">2 Decide</button>
-      <button data-tab="final" disabled title="Module 3 comes in versions 3–4">3 Final</button>
+      <button data-tab="decide" title="Module 2: Method C">2 Decide</button>
+      <button data-tab="final" title="Module 3: final depths">3 Final</button>
     </div>
   </div>
 
@@ -206,6 +218,124 @@
     </div>
   </div>
 
+  <!-- ===== Decide (Module 2) ===== -->
+  <div id="tab-decide" class="tab" hidden>
+    <section>
+      <h2>Counts of all counters</h2>
+      <div class="row">
+        <label class="btn">Load counts files…<input id="dFiles" type="file" multiple accept=".json,application/json" hidden></label>
+      </div>
+      <div id="dCounters" class="list"></div>
+      <p class="hint">Load every counter's <code>…counts.json</code>. This module shows everyone's marks: open it only when all counts are finished.</p>
+    </section>
+    <section>
+      <h2>Chronology</h2>
+      <div class="row">
+        <button id="dMatch" class="accent">Match automatically</button>
+        <button id="dOpen">Open…</button>
+        <button id="dSave">Save</button>
+        <button id="dCsv">Export CSV</button>
+      </div>
+      <div class="grid2 mt">
+        <label class="field"><span>Tolerance × local varve thickness</span><input id="dTol" type="number" step="0.05" min="0.05" max="1"></label>
+        <label class="field"><span>Window (boundaries)</span><input id="dWin" type="number" step="1" min="2"></label>
+      </div>
+      <p class="hint" id="dInfo"></p>
+      <dl id="dSummary" class="stats"></dl>
+    </section>
+    <section>
+      <label class="field"><span>Section</span><select id="secSelDecide"></select></label>
+      <dl id="dSecStats" class="stats"></dl>
+    </section>
+    <section>
+      <h2>Review</h2>
+      <div class="row">
+        <button id="dPrev" title="Previous flagged group (,)">◂ Prev</button>
+        <button id="dNext" title="Next flagged group (.)">Next ▸</button>
+        <label class="check" style="margin:0"><input type="checkbox" id="dOnlyOpen" checked> only unchecked</label>
+      </div>
+      <div id="dSel"></div>
+      <div class="row mt">
+        <button id="dDetach" title="Take the selected boundary out of its group (X)">Detach (X)</button>
+        <button id="dCheck" title="Mark the selected group as checked (C)">Checked (C)</button>
+      </div>
+      <p class="hint">Click a mark to select its group; <b>Shift+click</b> a mark of another group to merge the two. The decision always follows the majority rule and cannot be overridden.</p>
+      <div class="legend">
+        <i style="background:#39d353"></i><span>all counters agree — varve</span>
+        <i style="background:#ffd400"></i><span>majority — varve, negative uncertainty +1</span>
+        <i style="background:#ff3b30"></i><span>minority — not a varve, positive uncertainty +1</span>
+        <b style="color:#b58900;text-align:center">?</b><span>flagged for review (disagreement, far apart or new)</span>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== Final (Module 3) ===== -->
+  <div id="tab-final" class="tab" hidden>
+    <section>
+      <h2>Chronology</h2>
+      <div class="row">
+        <button id="fOpenChrono">Open chronology…</button>
+        <button id="fTake" title="Use the chronology currently open in 2 Decide">Take from 2 Decide</button>
+      </div>
+      <p class="hint" id="fChronoInfo"></p>
+      <dl id="fSummary" class="stats"></dl>
+    </section>
+    <section>
+      <h2>Module 3 file</h2>
+      <div class="row">
+        <button id="fOpen">Open…</button>
+        <button id="fSave">Save</button>
+      </div>
+      <p class="hint" id="fInfo"></p>
+      <div class="row mt">
+        <button id="fVarvesCsv">Export varves CSV</button>
+        <button id="fCracksCsv">Export cracks CSV</button>
+      </div>
+    </section>
+    <section>
+      <label class="field"><span>Section</span><select id="secSelFinal"></select></label>
+      <dl id="fSecStats" class="stats"></dl>
+      <label class="check"><input type="checkbox" id="fDone"> All cracks on the path are marked in this section</label>
+    </section>
+    <section>
+      <h2>Mark and measure</h2>
+      <div class="row">
+        <button data-m3tool="pathcrack" class="on" title="Step 1: cracks where they cross the path">1 · Cracks on path</button>
+        <button data-m3tool="horizon" title="Step 2: trace each boundary sideways">2 · Horizons</button>
+        <button data-m3tool="line" title="Fallback: thickness from lines base → top">Quick lines</button>
+        <button data-m3tool="vcrack" title="A crack inside a varve, subtracted from the thickness">Cracks in varves</button>
+      </div>
+      <p class="hint" id="m3ToolHint"></p>
+      <div id="step1Box">
+        <div id="fSel"></div>
+        <div class="row mt"><button id="fDel">Delete crack</button></div>
+      </div>
+      <div id="step2Box" hidden>
+        <div id="hOpts">
+          <label class="check"><input type="checkbox" id="hCrack"> Crack along this boundary (trace its upper, then its lower edge)</label>
+          <label class="check"><input type="checkbox" id="hAdv" checked> Go to the next boundary after each horizon</label>
+        </div>
+        <div class="grid2 mt"><label class="field"><span>Positions per varve</span><input id="m3Pos" type="number" min="1" max="10" step="1"></label></div>
+        <div id="m3Sel"></div>
+        <div class="row mt">
+          <span id="m3Nav" class="row"><button id="m3Prev" title="Previous boundary ([)">◂ Boundary</button><button id="m3Next" title="Next boundary (])">Boundary ▸</button></span>
+          <button id="m3LineCrack" title="Mark a crack on the selected line (K)">Crack on line (K)</button>
+          <button id="m3Del">Delete selected</button>
+        </div>
+        <dl id="m3Stats" class="stats"></dl>
+        <div class="row mt"><button id="fThickCsv">Export thickness CSV</button></div>
+      </div>
+      <div class="legend">
+        <i style="background:#ff4fd8"></i><span>crack (left out of depths and thickness)</span>
+        <i style="background:#39d353"></i><span>varve boundary, all counters agree</span>
+        <i style="background:#ffd400"></i><span>varve boundary by majority</span>
+        <i style="background:#ffffff;border:1px solid #999"></i><span>horizon (traced boundary)</span>
+        <i style="background:#00e5ff"></i><span>thickness measurement</span>
+        <i style="background:#ff9f1c"></i><span>quick line</span>
+      </div>
+    </section>
+  </div>
+
   <!-- ===== Count ===== -->
   <div id="tab-count" class="tab" hidden>
     <section>
@@ -235,6 +365,7 @@
         <tr><td>Drag · wheel</td><td>pan · zoom</td></tr>
         <tr><td><kbd>D</kbd> / <kbd>A</kbd></td><td>move along the path, deeper / back</td></tr>
         <tr><td><kbd>F</kbd> <kbd>R</kbd> <kbd>N</kbd></td><td>fit · rotate view · numbers</td></tr>
+        <tr><td><kbd>E</kbd></td><td>export an image with your marks</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>undo / redo</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>save</td></tr>
       </table>
@@ -255,11 +386,43 @@
     <label title="Brightness">☀<input id="fB" type="range" min="40" max="250" value="100"></label>
     <label title="Contrast">◐<input id="fC" type="range" min="40" max="300" value="100"></label>
     <button id="fReset" title="Reset brightness and contrast">↺</button>
+    <button id="zExport" title="Export the section with its marks as an image (E)">Export…</button>
   </div>
   <div class="status" id="status">&nbsp;</div>
   <div class="toast" id="toast"></div>
   <div class="busy" id="busy" hidden></div>
 </main>
+
+<div class="modal" id="exportDlg" hidden>
+  <div class="dlg" role="dialog" aria-label="Export image">
+    <h2>Export image</h2>
+    <div class="dlg-body">
+      <div>
+        <p class="hint" id="exWhat" style="margin-top:0"></p>
+        <label class="check"><input type="checkbox" id="exView"> Current view only</label>
+        <p class="hint">Off: the whole section at full resolution, in its original orientation.</p>
+        <h3>Layers</h3>
+        <label class="check"><input type="checkbox" id="exPath"> Path</label>
+        <label class="check"><input type="checkbox" id="exMarks"> Boundary marks</label>
+        <label class="check"><input type="checkbox" id="exNums"> Boundary numbers</label>
+        <label class="check"><input type="checkbox" id="exLabels"> Labels (segments, top / base depth)</label>
+        <h3>Extras</h3>
+        <label class="check"><input type="checkbox" id="exFilter"> Apply brightness / contrast</label>
+        <div class="check"><input type="checkbox" id="exBar"><label for="exBar">Scale bar</label>
+          <input type="number" id="exBarMm" min="0.05" step="any" style="width:70px"> mm</div>
+        <label class="check"><input type="checkbox" id="exCap"> Caption strip</label>
+        <label class="field mt"><span>Mark and label size: <b id="exSizeV"></b></span>
+          <input type="range" id="exSize" min="0.5" max="4" step="0.25"></label>
+        <p class="hint" id="exInfo"></p>
+      </div>
+      <div class="pv" id="pvBox"><canvas id="exPv"></canvas></div>
+    </div>
+    <div class="row mt" style="justify-content:flex-end">
+      <button id="exCancel">Cancel</button>
+      <button id="exSave" class="accent">Save PNG</button>
+    </div>
+  </div>
+</div>
 
 <script>
 'use strict';
@@ -269,7 +432,7 @@
    Design: DESIGN.md in this folder.
    ===================================================================== */
 
-const APP = 'varves-counter@1';
+const APP = 'varves-counter@4';
 const SCHEMA_PROJECT = 'varves/project@1';
 const SCHEMA_COUNTS = 'varves/counts@1';
 const MM_PER_IN = 25.4;
@@ -325,8 +488,8 @@ function toast(msg, kind = '') {
 }
 function busy(msg) { const b = $('busy'); b.hidden = !msg; b.textContent = msg || ''; }
 
-function download(text, name, type) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
+function download(data, name, type) {
+  const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type }));
   const a = document.createElement('a');
   a.href = url; a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
@@ -862,6 +1025,8 @@ function touchPath(sec) {
   sec.drawn_by = state.person || sec.drawn_by || null;
   touchProject(sec);
   if (state.counts) syncCountsSection(sec);
+  if (m2.counters.length) { for (const p of m2.counters) relocateCS(sec, m2.counts[p].sections[sec.id]); m2Invalidate(); }
+  m3._res = null;
 }
 
 /* ---------------------------------------------------------------------
@@ -905,15 +1070,7 @@ function withS(sec, cs) {
 
 /* After a path change: re-attach every boundary to its nearest segment. */
 function syncCountsSection(sec) {
-  const cs = countsSec(sec.id, false);
-  if (!cs) return false;
-  const sig = pathSig(sec);
-  if (cs.path_sig === sig) return false;
-  for (const b of cs.boundaries) {
-    const r = locate(sec, [b.x, b.y]);
-    if (r) { b.seg = r.seg; b.s_px = round(r.s, 2); }
-  }
-  cs.path_sig = sig;
+  if (!relocateCS(sec, countsSec(sec.id, false))) return false;
   touchCounts();
   return true;
 }
@@ -929,12 +1086,16 @@ function nextBoundaryId(cs) {
    --------------------------------------------------------------------- */
 const keyProject = name => `varves:autosave:project:${name}`;
 const keyCounts = (name, person) => `varves:autosave:counts:${name}:${person}`;
+const keyChrono = name => `varves:autosave:chrono:${name}`;
+const keyThick = name => `varves:autosave:thickness:${name}`;
 let autosaveTimer;
 function scheduleAutosave() {
   clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(() => {
     if (state.project && state.projectDirty) store.set(keyProject(state.project.project), JSON.stringify(state.project));
     if (state.counts && state.countsDirty) store.set(keyCounts(state.counts.project, state.counts.person), JSON.stringify(state.counts));
+    if (m2.chrono && m2.dirty) store.set(keyChrono(m2.chrono.project), JSON.stringify(m2.chrono));
+    if (m3.doc && m3.dirty) store.set(keyThick(m3.doc.project), JSON.stringify(m3.doc));
   }, 800);
 }
 function offerRestore(key, obj, what) {
@@ -953,10 +1114,12 @@ function offerRestore(key, obj, what) {
 /* ---------------------------------------------------------------------
    Undo / redo (per domain: setup = path geometry, counts = boundaries)
    --------------------------------------------------------------------- */
-const undo = { setup: [], counts: [] }, redo = { setup: [], counts: [] };
+const undo = { setup: [], counts: [], decide: [], final: [] }, redo = { setup: [], counts: [], decide: [], final: [] };
 function snapshot(domain, secId) {
   const sec = secById(secId);
   if (domain === 'setup') return { secId, data: JSON.stringify(sec.segments) };
+  if (domain === 'decide') return { secId, data: JSON.stringify(m2.chrono.sections[secId].groups) };
+  if (domain === 'final') return { secId, data: JSON.stringify(m3Sec(secId, false)) };
   const cs = countsSec(secId, false);
   return { secId, data: JSON.stringify(cs ? cs.boundaries : []) };
 }
@@ -970,13 +1133,19 @@ function restoreSnap(domain, snap) {
   const sec = secById(snap.secId);
   if (!sec) return;
   if (domain === 'setup') { sec.segments = JSON.parse(snap.data); touchPath(sec); }
+  else if (domain === 'final') {
+    const v = JSON.parse(snap.data);
+    if (v) m3.doc.sections[sec.id] = v; else delete m3.doc.sections[sec.id];
+    m3.sel = null; m3.pending = null; touchM3();
+  }
+  else if (domain === 'decide') { m2.chrono.sections[sec.id].groups = JSON.parse(snap.data); m2.sel = null; touchChrono(); }
   else { countsSec(sec.id, true).boundaries = JSON.parse(snap.data); touchCounts(); }
   if (state.secId !== sec.id) selectSection(sec.id);
   state.selB = null; state.selV = null;
   refreshPanels(); requestDraw();
 }
 function undoRedo(isRedo) {
-  const domain = state.tab === 'setup' ? 'setup' : state.tab === 'count' && state.counts ? 'counts' : null;
+  const domain = state.tab === 'setup' ? 'setup' : state.tab === 'count' && state.counts ? 'counts' : state.tab === 'decide' && m2.chrono ? 'decide' : state.tab === 'final' && m3.doc ? 'final' : null;
   if (!domain) return;
   const from = isRedo ? redo[domain] : undo[domain], to = isRedo ? undo[domain] : redo[domain];
   const snap = from.pop();
@@ -984,12 +1153,18 @@ function undoRedo(isRedo) {
   to.push(snapshot(domain, snap.secId));
   restoreSnap(domain, snap);
 }
-function clearUndo() { for (const d of ['setup', 'counts']) { undo[d].length = 0; redo[d].length = 0; } }
+function clearUndo() { for (const d of ['setup', 'counts', 'decide', 'final']) { undo[d].length = 0; redo[d].length = 0; } }
 
 /* ---------------------------------------------------------------------
    Canvas view
    --------------------------------------------------------------------- */
-const cv = $('cv'), ctx = cv.getContext('2d');
+const cv = $('cv'), screenCtx = cv.getContext('2d');
+/* Render context. The screen and the image export share the drawing code:
+   ctx is the target, R.u scales line widths and labels, R.w / R.h is the
+   drawn area (for culling), R.exp suppresses on-screen-only decorations. */
+let ctx = screenCtx;
+const LAYERS_ALL = { path: true, marks: true, nums: true, labels: true };
+let R = { u: 1, w: null, h: null, exp: false, layers: LAYERS_ALL };
 let Mc = new DOMMatrix(), Mi = new DOMMatrix();
 function updM() {
   Mc = new DOMMatrix().translate(view.tx, view.ty).rotate(view.rot * 90).scale(view.scale);
@@ -1062,25 +1237,29 @@ function strokePoly(pts, color, w, dash) {
   if (pts.length < 2) return;
   ctx.save();
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  ctx.setLineDash(dash || []);
+  ctx.setLineDash((dash || []).map(v => v * R.u));
   ctx.beginPath();
   pts.forEach((p, i) => { const q = toScreen(p); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
-  ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = w + 2.5; ctx.stroke();
-  ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = (w + 2.5) * R.u; ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = w * R.u; ctx.stroke();
   ctx.restore();
 }
 function label(text, x, y, color = '#fff', align = 'left') {
   ctx.save();
-  ctx.font = '600 12px system-ui, sans-serif';
+  ctx.font = `600 ${12 * R.u}px system-ui, sans-serif`;
+  // keep the label inside the drawn area
+  const tw = ctx.measureText(text).width, pad = 3 * R.u, bw = R.w ?? W();
+  const left = align === 'center' ? x - tw / 2 : align === 'right' ? x - tw : x;
+  x += clamp(left, pad, Math.max(pad, bw - tw - pad)) - left;
   ctx.textAlign = align; ctx.textBaseline = 'middle';
-  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(text, x, y);
+  ctx.lineWidth = 3 * R.u; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(text, x, y);
   ctx.fillStyle = color; ctx.fillText(text, x, y);
   ctx.restore();
 }
 function dot(p, r, fill, stroke = '#000') {
   const q = toScreen(p);
-  ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, Math.PI * 2);
-  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke();
+  ctx.beginPath(); ctx.arc(q[0], q[1], r * R.u, 0, Math.PI * 2);
+  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5 * R.u; ctx.strokeStyle = stroke; ctx.stroke();
 }
 /* Unit normal in screen space at an image point with image direction dir. */
 function screenNormal(pt, dir) {
@@ -1103,47 +1282,62 @@ function draw() {
   $('zPct').textContent = img ? Math.round(view.scale * 100) + '%' : '—';
   if (!img) return;
   updM();
-  ctx.setTransform(dpr * Mc.a, dpr * Mc.b, dpr * Mc.c, dpr * Mc.d, dpr * Mc.e, dpr * Mc.f);
-  ctx.imageSmoothingEnabled = view.scale < 2;
+  drawImageLayer(img, new DOMMatrix().scale(dpr).multiply(Mc), view.scale * dpr < 2, true);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawOverlay(sec);
+  if (state.tab === 'setup') drawSetup(sec, img);
+}
+
+function drawImageLayer(img, m, smooth, filtered) {
+  ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
+  ctx.imageSmoothingEnabled = smooth;
   const f = state.filter;
-  ctx.filter = f.b !== 100 || f.c !== 100 ? `brightness(${f.b}%) contrast(${f.c}%)` : 'none';
+  ctx.filter = filtered && (f.b !== 100 || f.c !== 100) ? `brightness(${f.b}%) contrast(${f.c}%)` : 'none';
   ctx.drawImage(img.bitmap, 0, 0);
   ctx.filter = 'none';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  drawPath(sec);
-  if (state.tab === 'setup') drawSetup(sec, img);
-  if (state.tab === 'count') drawBoundaries(sec);
+}
+
+/* The marks of the current module: Setup = path, 1 Count = path + own boundaries. */
+function drawOverlay(sec) {
+  if (R.layers.path || R.layers.labels) drawPath(sec);
+  if (state.tab === 'count' && (R.layers.marks || R.layers.nums)) drawBoundaries(sec);
+  if (state.tab === 'decide') drawDecide(sec);
+  if (state.tab === 'final') { drawFinal(sec); drawThickness(sec); }
 }
 
 function drawPath(sec) {
   const segs = sec.segments;
   const counting = state.tab === 'count';
-  for (let i = 0; i < segs.length - 1; i++) {
-    const a = segs[i].points, b = segs[i + 1].points;
-    if (a.length && b.length) strokePoly([a[a.length - 1], b[0]], '#ffffff', 1, [4, 4]);
+  const L = R.layers, u = R.u;
+  if (L.path) {
+    for (let i = 0; i < segs.length - 1; i++) {
+      const a = segs[i].points, b = segs[i + 1].points;
+      if (a.length && b.length) strokePoly([a[a.length - 1], b[0]], '#ffffff', 1, [4, 4]);
+    }
   }
   segs.forEach((g, i) => {
-    const w = counting && i === state.activeSeg ? 2.5 : 1.5;
-    strokePoly(g.points, SEG_COLORS[i % 2], w);
-    if (state.tab === 'setup') {
+    const w = counting && !R.exp && i === state.activeSeg ? 2.5 : 1.5;
+    if (L.path) strokePoly(g.points, SEG_COLORS[i % 2], w);
+    if (state.tab === 'setup' && !R.exp) {
       g.points.forEach((p, vi) => {
         const sel = state.selV && state.selV.seg === i && state.selV.vi === vi;
         dot(p, sel ? 6 : 4, sel ? '#ff4fd8' : SEG_COLORS[i % 2]);
       });
     }
-    if (g.points.length >= 2) {
+    if (L.labels && g.points.length >= 2) {
       const { P, n } = screenNormal(g.points[0], pointAt(g, 0).dir);
-      label(String(i + 1), P[0] + n[0] * 14, P[1] + n[1] * 14, SEG_COLORS[i % 2], 'center');
+      label(String(i + 1), P[0] + n[0] * 14 * u, P[1] + n[1] * 14 * u, SEG_COLORS[i % 2], 'center');
     }
   });
   const first = segs[0], last = segs[segs.length - 1];
-  if (first && first.points.length >= 2 && last.points.length >= 2) {
+  if (L.labels && first && first.points.length >= 2 && last.points.length >= 2) {
     const a = sec.anchors;
+    const lo = 16 * u + (state.tab === 'decide' && m2.chrono ? ((m2.counters.length - 1) / 2) * TRACK * u + 6 * u : 0);
     const s0 = screenNormal(first.points[0], pointAt(first, 0).dir);
-    label('top' + (a.top_mm != null ? ` ${fmt(a.top_mm / 10, 2)} cm` : ''), s0.P[0] - s0.n[0] * 16, s0.P[1] - s0.n[1] * 16, '#fff', 'center');
+    label('top' + (a.top_mm != null ? ` ${fmt(a.top_mm / 10, 2)} cm` : ''), s0.P[0] - s0.n[0] * lo, s0.P[1] - s0.n[1] * lo, '#fff', 'center');
     const lp = last.points[last.points.length - 1];
     const s1 = screenNormal(lp, pointAt(last, segLength(last)).dir);
-    label('base' + (a.bottom_mm != null ? ` ${fmt(a.bottom_mm / 10, 2)} cm` : ''), s1.P[0] - s1.n[0] * 16, s1.P[1] - s1.n[1] * 16, '#fff', 'center');
+    label('base' + (a.bottom_mm != null ? ` ${fmt(a.bottom_mm / 10, 2)} cm` : ''), s1.P[0] - s1.n[0] * lo, s1.P[1] - s1.n[1] * lo, '#fff', 'center');
   }
 }
 
@@ -1175,25 +1369,28 @@ function drawBoundaries(sec) {
   if (!cs || !sec.segments.length) return;
   const list = withS(sec, cs);
   let lastLab = null;
-  const w = W(), h = H();
+  const u = R.u, T = TICK * u, w = R.w ?? W(), h = R.h ?? H(), m = 50 * u;
+  const nums = R.exp ? R.layers.nums : state.showNums;
   list.forEach((it, i) => {
     const g = sec.segments[it.seg];
     if (!g) return;
     const { pt, dir } = pointAt(g, it.along);
     const { P, n } = screenNormal(pt, dir);
-    if (P[0] < -50 || P[1] < -50 || P[0] > w + 50 || P[1] > h + 50) return;
-    const sel = it.b.id === state.selB;
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(P[0] - n[0] * TICK, P[1] - n[1] * TICK);
-    ctx.lineTo(P[0] + n[0] * TICK, P[1] + n[1] * TICK);
-    ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.lineWidth = sel ? 6 : 4.5; ctx.stroke();
-    ctx.strokeStyle = sel ? '#39ff88' : '#ff3b30'; ctx.lineWidth = sel ? 3 : 2; ctx.stroke();
-    ctx.restore();
-    if (state.showNums) {
-      const lx = P[0] + n[0] * (TICK + 9), ly = P[1] + n[1] * (TICK + 9);
-      if (!lastLab || Math.hypot(lx - lastLab[0], ly - lastLab[1]) > 18 || sel) {
+    if (P[0] < -m || P[1] < -m || P[0] > w + m || P[1] > h + m) return;
+    const sel = !R.exp && it.b.id === state.selB;
+    if (R.layers.marks) {
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(P[0] - n[0] * T, P[1] - n[1] * T);
+      ctx.lineTo(P[0] + n[0] * T, P[1] + n[1] * T);
+      ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.lineWidth = (sel ? 6 : 4.5) * u; ctx.stroke();
+      ctx.strokeStyle = sel ? '#39ff88' : '#ff3b30'; ctx.lineWidth = (sel ? 3 : 2) * u; ctx.stroke();
+      ctx.restore();
+    }
+    if (nums) {
+      const lx = P[0] + n[0] * (T + 9 * u), ly = P[1] + n[1] * (T + 9 * u);
+      if (!lastLab || Math.hypot(lx - lastLab[0], ly - lastLab[1]) > 18 * u || sel) {
         label(String(i + 1), lx, ly, sel ? '#39ff88' : '#fff', 'center');
         lastLab = [lx, ly];
       }
@@ -1325,6 +1522,10 @@ cv.addEventListener('pointerdown', e => {
     const b = hitBoundary(sec, sx, sy);
     if (b) { state.selB = b.id; drag = { kind: 'boundary', b, sx, sy, moved: false }; renderCountStats(); requestDraw(); return; }
   }
+  if (state.tab === 'final' && m3.tool === 'pathcrack' && !m3.pending) {
+    const hc = crackHit(sec, sx, sy, true);
+    if (hc) { m3.sel = hc.id; drag = { kind: 'crack', ...hc, sx, sy, moved: false }; renderFinalSel(); requestDraw(); return; }
+  }
   if (state.tab === 'setup' && state.tool === 'edit') {
     const hv = hitVertex(sec, sx, sy);
     if (hv) { state.selV = hv; drag = { kind: 'vertex', ...hv, sx, sy, moved: false }; requestDraw(); return; }
@@ -1342,11 +1543,17 @@ cv.addEventListener('pointermove', e => {
     drag.moved = true;
     if (drag.kind === 'boundary') pushUndo('counts');
     if (drag.kind === 'vertex') pushUndo('setup');
+    if (drag.kind === 'crack') pushUndo('final');
     if (drag.kind === 'pan') cv.style.cursor = 'grabbing';
   }
   const sec = curSec();
   if (drag.kind === 'pan') { view.tx = drag.tx + dx; view.ty = drag.ty + dy; updM(); requestDraw(); }
   else if (drag.kind === 'boundary') { moveBoundary(sec, drag.b, toImage(sx, sy)); requestDraw(); }
+  else if (drag.kind === 'crack') {
+    const p = toImage(sx, sy), c = m3Sec(sec.id, false).cracks.find(k => k.id === drag.id);
+    if (c) { c['x' + drag.edge] = round(p[0], 1); c['y' + drag.edge] = round(p[1], 1); m3._res = null; }
+    requestDraw();
+  }
   else if (drag.kind === 'vertex') {
     const p = toImage(sx, sy);
     sec.segments[drag.seg].points[drag.vi] = [round(p[0], 1), round(p[1], 1)];
@@ -1363,9 +1570,18 @@ cv.addEventListener('pointerup', e => {
   if (d.moved) {
     if (d.kind === 'boundary') { touchCounts(); renderCountStats(); }
     if (d.kind === 'vertex') { touchPath(sec); renderSetup(); renderProject(); }
+    if (d.kind === 'crack') { touchM3(); renderFinal(); }
     return;
   }
   if (d.kind !== 'pan' || e.button !== 0) return;
+  if (state.tab === 'decide') { decideClick(sec, ...pos(e), e.shiftKey); return; }
+  if (state.tab === 'final' && m3.tool !== 'pathcrack') { m3Click(sec, ...pos(e), toImage(...pos(e)), e.shiftKey); return; }
+  if (state.tab === 'final') {
+    const hit = !m3.pending && crackHit(sec, ...pos(e), false);
+    if (hit) { m3.sel = hit.id; renderFinalSel(); requestDraw(); }
+    else crackClick(sec, toImage(...pos(e)));
+    return;
+  }
   const p = toImage(...pos(e));
   if (state.tab === 'count') addBoundary(sec, p);
   else if (state.tab === 'setup') {
@@ -1386,6 +1602,7 @@ cv.addEventListener('pointerup', e => {
 });
 
 cv.addEventListener('dblclick', e => {
+  if (state.tab === 'final' && m3.draft && m3.tool !== 'line') { e.preventDefault(); finishM3Draft(); return; }
   if (state.tab === 'setup' && state.tool === 'draw' && state.draft) { e.preventDefault(); finishDraft(); }
 });
 
@@ -1397,6 +1614,17 @@ cv.addEventListener('contextmenu', e => {
   if (state.tab === 'count' && state.counts) {
     const b = hitBoundary(sec, sx, sy);
     if (b) deleteBoundary(sec, b.id);
+  } else if (state.tab === 'final' && m3.tool !== 'pathcrack') {
+    if (m3.draft && m3.tool !== 'line') finishM3Draft();
+    else if (m3.draft || m3.lineCrack) cancelM3Draft();
+    else {
+      if (m3.tool === 'horizon') { const g = hitHorizon(sec, sx, sy); if (g) { m3.hsel = g; deleteM3Selected(); } }
+      if (m3.tool === 'line') { const l = hitLine(sec, sx, sy); if (l) { m3.lsel = l; deleteM3Selected(); } }
+      if (m3.tool === 'vcrack') { const c = hitVcrack(sec, sx, sy); if (c) { m3.vsel = c; deleteM3Selected(); } }
+    }
+  } else if (state.tab === 'final') {
+    if (m3.pending) { m3.pending = null; renderFinalSel(); requestDraw(); }
+    else { const hit = crackHit(sec, sx, sy, false); if (hit) deleteCrack(sec.id, hit.id); }
   } else if (state.tab === 'setup') {
     if (state.tool === 'draw' && state.draft) finishDraft();
     else if (state.tool === 'edit') { const hv = hitVertex(sec, sx, sy); if (hv) deleteVertex(hv); }
@@ -1415,7 +1643,7 @@ cv.addEventListener('pointerleave', () => { state.cursor = null; updateStatus();
 
 function setCursor() {
   if (spaceDown) { cv.style.cursor = 'grab'; return; }
-  const cross = state.tab === 'count' || (state.tab === 'setup' && state.tool !== 'edit');
+  const cross = state.tab === 'count' || state.tab === 'final' || (state.tab === 'setup' && state.tool !== 'edit');
   cv.style.cursor = cross ? 'crosshair' : 'default';
 }
 
@@ -1431,6 +1659,7 @@ function updateStatus() {
       parts.push(`s ${k ? fmt(loc.s * k, 3) + ' mm' : Math.round(loc.s) + ' px'}`);
       const d = coreDepth(sec, loc.s, loc.L);
       if (d != null && inside) parts.push(`depth ${fmt(d / 10, 4)} cm`);
+      if (state.tab === 'final' && inside && m3Cracks(sec.id).length) parts.push(`without cracks ${fmt(depthCorrected(sec, loc.s, loc.L, m3Cracks(sec.id)) / 10, 4)} cm`);
       if (!inside) parts.push('outside the path');
     }
   }
@@ -1444,6 +1673,7 @@ function updateStatus() {
    Keyboard
    --------------------------------------------------------------------- */
 document.addEventListener('keydown', e => {
+  if (!$('exportDlg').hidden) { if (e.key === 'Escape') closeExport(); return; }
   if (e.target.closest && e.target.closest('input, select, textarea')) return;
   const k = e.key, mod = e.ctrlKey || e.metaKey;
   if (mod && k.toLowerCase() === 'z') { e.preventDefault(); undoRedo(e.shiftKey); return; }
@@ -1457,6 +1687,11 @@ document.addEventListener('keydown', e => {
     case '-': case '_': zoomAt(W() / 2, H() / 2, 0.8); break;
     case 'f': case 'F': case '0': fitView(); break;
     case 'r': case 'R': rotateView(); break;
+    case 'e': case 'E': openExport(); break;
+    case 'x': case 'X': if (state.tab === 'decide') detachSelected(); break;
+    case 'c': case 'C': if (state.tab === 'decide') toggleChecked(); break;
+    case '.': if (state.tab === 'decide') reviewStep(1); break;
+    case ',': if (state.tab === 'decide') reviewStep(-1); break;
     case 'n': case 'N': state.showNums = !state.showNums; $('showNums').checked = state.showNums; requestDraw(); break;
     case 'd': case 'D': panAlongPath(1); break;
     case 'a': case 'A': panAlongPath(-1); break;
@@ -1466,18 +1701,1619 @@ document.addEventListener('keydown', e => {
     case 'ArrowDown': panBy(0, -H() / 4); e.preventDefault(); break;
     case 'Delete': case 'Backspace':
       if (state.tab === 'count' && state.selB && sec) deleteBoundary(sec, state.selB);
+      else if (state.tab === 'final') deleteM3Selected();
       else if (state.tab === 'setup' && state.selV) deleteVertex(state.selV);
       e.preventDefault();
       break;
-    case 'Enter': if (state.tab === 'setup' && state.draft) finishDraft(); break;
+    case 'Enter': if (state.tab === 'setup' && state.draft) finishDraft(); else if (state.tab === 'final' && m3.draft) finishM3Draft(); break;
+    case ']': if (state.tab === 'final') stepBoundary(1); break;
+    case '[': if (state.tab === 'final') stepBoundary(-1); break;
+    case 'k': case 'K': if (state.tab === 'final' && m3.tool === 'line' && m3.lsel) { m3.lineCrack = m3.lsel; m3.draft = []; renderM3Sel(); } break;
     case 'Escape':
       if (state.draft) state.draft = null;
+      else if (m3.pending || m3.draft || m3.lineCrack) cancelM3Draft();
       else if (state.tool === 'scale') { state.scalePts = null; setTool('edit'); }
       state.selB = null; state.selV = null; requestDraw(); renderCountStats();
       break;
   }
 });
 document.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; setCursor(); } });
+
+/* =====================================================================
+   Module 2 — varve decision (Method C), DESIGN.md §6
+   All counters' boundaries are matched per section; each matched group is
+   decided by a strict majority. Positive / negative uncertainty is summed
+   from the top of the record down.
+   ===================================================================== */
+const SCHEMA_CHRONO = 'varves/chronology@1';
+const COUNTER_COLORS = ['#4fc3f7', '#ffb74d', '#ce93d8', '#a5d6a7', '#f48fb1', '#fff59d', '#b0bec5', '#80cbc4'];
+const STATUS_COLORS = { all: '#39d353', majority: '#ffd400', minority: '#ff3b30' };
+const STATUS_TEXT = { all: 'all counters agree', majority: 'majority — accepted, negative uncertainty +1', minority: 'minority — rejected, positive uncertainty +1' };
+const NEAR_LIMIT = 0.8;   // groups whose spread exceeds 80 % of the tolerance are flagged
+const TRACK = 20;         // screen px between counter tracks
+
+const m2 = { counters: [], counts: {}, files: {}, chrono: null, handle: null, fileName: null, dirty: false, sel: null, _pos: null, _res: null };
+
+const majority = N => Math.floor(N / 2) + 1;
+const median = a => {
+  if (!a.length) return null;
+  const b = a.slice().sort((x, y) => x - y), h = b.length >> 1;
+  return b.length % 2 ? b[h] : (b[h - 1] + b[h]) / 2;
+};
+const counterColor = p => COUNTER_COLORS[Math.max(0, m2.counters.indexOf(p)) % COUNTER_COLORS.length];
+
+function m2Reset() {
+  Object.assign(m2, { counters: [], counts: {}, files: {}, chrono: null, handle: null, fileName: null, dirty: false, sel: null });
+  m2Invalidate();
+  if (typeof undo !== 'undefined') { undo.decide.length = 0; redo.decide.length = 0; }
+}
+function m2Invalidate() { m2._pos = null; m2._res = null; }
+function m2Settings() {
+  const d = (state.project && state.project.settings && state.project.settings.method_c) || {};
+  const s = (m2.chrono && m2.chrono.settings) || {};
+  return { tolerance_fraction: s.tolerance_fraction ?? d.tolerance_fraction ?? 0.5, window: s.window ?? d.window ?? 10 };
+}
+
+/* Re-attach a counts section to the current path (after the path changed). */
+function relocateCS(sec, cs) {
+  if (!cs) return false;
+  const sig = pathSig(sec);
+  if (cs.path_sig === sig) return false;
+  for (const b of cs.boundaries) {
+    const r = locate(sec, [b.x, b.y]);
+    if (r) { b.seg = r.seg; b.s_px = round(r.s, 2); }
+  }
+  cs.path_sig = sig;
+  return true;
+}
+
+/* Running median of the spacing between consecutive boundaries. */
+function localThickness(sorted, win) {
+  const sp = [];
+  for (let i = 1; i < sorted.length; i++) sp.push(sorted[i] - sorted[i - 1]);
+  if (!sp.length) return sorted.map(() => null);
+  const w = Math.max(1, Math.min(win, sp.length));
+  return sorted.map((_, i) => {
+    const lo = clamp(i - Math.floor(w / 2), 0, sp.length - w);
+    return median(sp.slice(lo, lo + w));
+  });
+}
+
+/* Positions of every counter's boundaries: secId -> person -> Map(bid -> {s, T}). */
+function m2Pos() {
+  if (m2._pos) return m2._pos;
+  const out = {}, win = m2Settings().window;
+  for (const sec of state.project.sections) {
+    const per = {};
+    if (sec.segments.length) {
+      for (const p of m2.counters) {
+        const cs = m2.counts[p].sections[sec.id];
+        if (!cs || !cs.boundaries.length) continue;
+        const list = withS(sec, cs);
+        const T = localThickness(list.map(it => it.s), win);
+        const mp = new Map();
+        list.forEach((it, i) => mp.set(it.b.id, { s: it.s, T: T[i] }));
+        per[p] = mp;
+      }
+    }
+    out[sec.id] = per;
+  }
+  return (m2._pos = out);
+}
+
+function memberInfo(secId, g) {
+  const P = m2Pos()[secId] || {};
+  const ms = [];
+  for (const [p, b] of Object.entries(g.members)) { const v = P[p] && P[p].get(b); if (v) ms.push({ p, b, s: v.s, T: v.T }); }
+  return ms;
+}
+const groupS = (secId, g) => { const ms = memberInfo(secId, g); return ms.length ? ms.reduce((a, m) => a + m.s, 0) / ms.length : null; };
+
+/* Order-preserving alignment of one counter's boundaries to the current groups
+   (dynamic programming; a match is allowed only within the local tolerance). */
+function alignMerge(A, q, frac) {
+  const B = q.items, n = A.length, m = B.length, GAP = 0.5, W1 = m + 1;
+  if (!m) return A;
+  const D = new Float64Array((n + 1) * W1), K = new Uint8Array((n + 1) * W1);
+  for (let i = 1; i <= n; i++) { D[i * W1] = i * GAP; K[i * W1] = 1; }
+  for (let j = 1; j <= m; j++) { D[j] = j * GAP; K[j] = 2; }
+  for (let i = 1; i <= n; i++) {
+    const a = A[i - 1];
+    for (let j = 1; j <= m; j++) {
+      let best = D[(i - 1) * W1 + j] + GAP, k = 1;
+      const c2 = D[i * W1 + j - 1] + GAP;
+      if (c2 < best) { best = c2; k = 2; }
+      const b = B[j - 1], tol = frac * (a.T + b.T) / 2, d = Math.abs(a.s - b.s);
+      if (d <= tol) { const c3 = D[(i - 1) * W1 + j - 1] + d / tol; if (c3 < best) { best = c3; k = 3; } }
+      D[i * W1 + j] = best; K[i * W1 + j] = k;
+    }
+  }
+  const out = [];
+  let i = n, j = m;
+  while (i > 0 || j > 0) {
+    const k = K[i * W1 + j];
+    if (k === 3) {
+      const a = A[i - 1], b = B[j - 1], nn = a.n + 1;
+      out.push({ members: { ...a.members, [q.p]: b.id }, s: (a.s * a.n + b.s) / nn, T: (a.T * a.n + b.T) / nn, n: nn });
+      i--; j--;
+    } else if (k === 1) { out.push(A[i - 1]); i--; }
+    else { const b = B[j - 1]; out.push({ members: { [q.p]: b.id }, s: b.s, T: b.T, n: 1 }); j--; }
+  }
+  return out.reverse();
+}
+
+/* Groups must not cross: along the path, each counter's boundaries keep their order. */
+function crossingOK(secId, groups) {
+  const P = m2Pos()[secId] || {}, last = {};
+  for (const g of groups) {
+    for (const [p, b] of Object.entries(g.members)) {
+      const v = P[p] && P[p].get(b);
+      if (!v) continue;
+      if (last[p] != null && v.s < last[p]) return false;
+      last[p] = v.s;
+    }
+  }
+  return true;
+}
+function sortGroups(secId, groups) {
+  const keyed = groups.map(g => ({ g, s: groupS(secId, g) ?? Infinity }));
+  keyed.sort((a, b) => a.s - b.s);
+  return keyed.map(k => k.g);
+}
+function nextGroupId(cs) { cs.next = (cs.next || 0) + 1; return 'g' + String(cs.next).padStart(4, '0'); }
+
+function autoMatchSection(sec, keepManual) {
+  const P = m2Pos()[sec.id] || {};
+  const persons = m2.counters.filter(p => P[p]);
+  const { tolerance_fraction: frac } = m2Settings();
+  const prev = m2.chrono.sections[sec.id];
+  const kept = keepManual && prev ? prev.groups.filter(g => g.manual) : [];
+  const taken = new Set();
+  kept.forEach(g => Object.entries(g.members).forEach(([p, b]) => taken.add(p + '|' + b)));
+  const allSp = [];
+  const seqs = persons.map(p => {
+    const items = [...P[p]].map(([id, v]) => ({ id, s: v.s, T: v.T })).sort((a, b) => a.s - b.s);
+    for (let i = 1; i < items.length; i++) allSp.push(items[i].s - items[i - 1].s);
+    return { p, items: items.filter(it => !taken.has(p + '|' + it.id)) };
+  });
+  const fallback = median(allSp) ?? pathInfo(sec).L;
+  seqs.forEach(q => q.items.forEach(it => { if (it.T == null) it.T = fallback; }));
+  let groups = [];
+  for (const q of seqs) groups = groups.length ? alignMerge(groups, q, frac) : q.items.map(it => ({ members: { [q.p]: it.id }, s: it.s, T: it.T, n: 1 }));
+  const cs = prev && keepManual ? prev : { image_sha256: sec.image.sha256, path_sig: pathSig(sec), next: prev ? prev.next : 0, groups: [], edits: prev ? prev.edits : [] };
+  const fresh = groups.map(g => ({ id: nextGroupId(cs), members: g.members, manual: false, checked: false }));
+  let all = sortGroups(sec.id, [...kept, ...fresh]);
+  if (!crossingOK(sec.id, all) && !kept.length) all = fresh;   // keep the alignment order
+  cs.groups = all;
+  cs.image_sha256 = sec.image.sha256;
+  cs.path_sig = pathSig(sec);
+  cs.edits = cs.edits || [];
+  cs.edits.push({ op: 'auto', at: nowISO(), by: state.person, kept_manual: kept.length, tolerance_fraction: frac, window: m2Settings().window });
+  m2.chrono.sections[sec.id] = cs;
+}
+
+/* Decide every group and accumulate the chronology (top of the record → down). */
+function m2Result() {
+  if (m2._res) return m2._res;
+  const pos = m2Pos(), { tolerance_fraction: frac } = m2Settings();
+  const rows = [], perSec = {}, byGid = new Map();
+  let varve = 0, up = 0, un = 0, prevD = null, first = true;
+  for (const sec of state.project.sections) {
+    const P = pos[sec.id] || {};
+    const N = m2.counters.filter(p => P[p]).length, k = majority(N);
+    const { L } = pathInfo(sec), kmm = mmPerPx(sec);
+    if (first) { prevD = anchored(sec) ? sec.anchors.top_mm : null; first = false; }
+    const st = { N, k, groups: 0, all: 0, majority: 0, minority: 0, open: 0, flagged: 0, varves: 0, up: 0, un: 0, matched: !!(m2.chrono && m2.chrono.sections[sec.id]) };
+    const cs = m2.chrono && m2.chrono.sections[sec.id];
+    if (cs) {
+      for (const g of cs.groups) {
+        const ms = memberInfo(sec.id, g);
+        if (!ms.length) continue;
+        const s = ms.reduce((a, m) => a + m.s, 0) / ms.length;
+        const n = ms.length;
+        const status = n >= N ? 'all' : n >= k ? 'majority' : 'minority';
+        const inc = status !== 'minority';
+        if (inc) { varve++; st.varves++; if (status === 'majority') { un++; st.un++; } } else { up++; st.up++; }
+        const spread = n > 1 ? Math.max(...ms.map(m => m.s)) - Math.min(...ms.map(m => m.s)) : 0;
+        const Tm = ms.reduce((a, m) => a + (m.T ?? 0), 0) / n;
+        const tol = frac * Tm;
+        const near = n > 1 && tol > 0 && spread > NEAR_LIMIT * tol;
+        const flagged = status !== 'all' || near || !!g.new;
+        const d = coreDepth(sec, s, L);
+        const row = {
+          sec: sec.id, g, s, smm: kmm ? s * kmm : null, n, N, status, included: inc, varve: inc ? varve : null,
+          depth: d, top: inc ? prevD : null, bottom: inc ? d : null, up, un, spread, tol, near, flagged, ms,
+        };
+        if (inc) prevD = d;
+        rows.push(row); byGid.set(sec.id + '|' + g.id, row);
+        st.groups++; st[status]++;
+        if (flagged) { st.flagged++; if (!g.checked) st.open++; }
+      }
+    }
+    perSec[sec.id] = st;
+  }
+  return (m2._res = { rows, perSec, byGid, varves: varve, up, un });
+}
+
+/* After loading counts or a chronology: drop members that no longer exist and
+   add new boundaries as single groups (flagged “new”). */
+function reconcileChrono() {
+  const ch = m2.chrono;
+  if (!ch) return { removed: 0, added: 0 };
+  m2Invalidate();
+  const pos = m2Pos();
+  let removed = 0, added = 0;
+  for (const [secId, cs] of Object.entries(ch.sections)) {
+    if (!secById(secId)) continue;
+    const P = pos[secId] || {};
+    const used = new Set();
+    for (const g of cs.groups) {
+      for (const [p, b] of Object.entries(g.members)) {
+        if (!m2.counts[p]) continue;
+        if (!P[p] || !P[p].has(b)) { delete g.members[p]; removed++; } else used.add(p + '|' + b);
+      }
+    }
+    cs.groups = cs.groups.filter(g => Object.keys(g.members).length);
+    for (const p of m2.counters) {
+      if (!P[p]) continue;
+      for (const b of P[p].keys()) {
+        if (used.has(p + '|' + b)) continue;
+        cs.groups.push({ id: nextGroupId(cs), members: { [p]: b }, manual: false, checked: false, new: true });
+        added++;
+      }
+    }
+    cs.groups = sortGroups(secId, cs.groups);
+  }
+  m2Invalidate();
+  return { removed, added };
+}
+
+function touchChrono() {
+  m2.chrono.modified = nowISO();
+  m2.dirty = true;
+  m2._res = null;
+  scheduleAutosave();
+  refreshTitle();
+}
+function logEdit(cs, op, detail) { cs.edits = cs.edits || []; cs.edits.push({ op, at: nowISO(), by: state.person, ...detail }); }
+
+/* ---- loading ---- */
+function remapSections(obj, label) {
+  const notes = [], out = {};
+  for (const [id, cs] of Object.entries(obj.sections || {})) {
+    let sec = secById(id);
+    if (sec && cs.image_sha256 && cs.image_sha256 !== sec.image.sha256) notes.push(`${label}: the image of ${id} has changed.`);
+    if (!sec) {
+      sec = state.project.sections.find(s => s.image.sha256 === cs.image_sha256);
+      if (sec) notes.push(`${label}: section ${id} is now called ${sec.id}.`);
+    }
+    if (!sec) { notes.push(`${label}: unknown section ${id} ignored.`); continue; }
+    out[sec.id] = cs;
+  }
+  obj.sections = out;
+  return notes;
+}
+function orderCounters() {
+  const order = state.project.people.map(p => p.id);
+  m2.counters = Object.keys(m2.counts).sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib) || a.localeCompare(b);
+  });
+}
+async function loadCountsFiles(files) {
+  if (!state.project) return;
+  const notes = [];
+  for (const f of files) {
+    try {
+      const obj = JSON.parse(await f.text());
+      if (!obj || obj.schema !== SCHEMA_COUNTS) throw new Error('not a counts file');
+      if (obj.project !== state.project.project) throw new Error(`belongs to project ${obj.project}`);
+      notes.push(...remapSections(obj, obj.person));
+      for (const sec of state.project.sections) relocateCS(sec, obj.sections[sec.id]);
+      if (m2.counts[obj.person]) notes.push(`${obj.person}: replaced by ${f.name}.`);
+      m2.counts[obj.person] = obj;
+      m2.files[obj.person] = f.name;
+    } catch (err) {
+      notes.push(`${f.name}: ${err.message}.`);
+    }
+  }
+  orderCounters();
+  m2Invalidate();
+  if (m2.chrono) {
+    const r = reconcileChrono();
+    if (r.removed || r.added) notes.push(`Matching updated: ${r.removed} removed, ${r.added} new boundaries to review.`);
+  }
+  refreshAll();
+  toast(notes.length ? notes.join(' ') : `${m2.counters.length} counters loaded.`, notes.some(n => /not a|belongs|unknown|changed/.test(n)) ? 'err' : '');
+}
+
+function newChronoObj() {
+  const t = nowISO();
+  const st = m2Settings();
+  return {
+    schema: SCHEMA_CHRONO, app: APP, project: state.project.project, reviewed_by: state.person,
+    counters: [], counts_files: {}, settings: { tolerance_fraction: st.tolerance_fraction, window: st.window },
+    sections: {}, created: t, modified: t,
+  };
+}
+function recordProvenance() {
+  const ch = m2.chrono;
+  ch.counters = m2.counters.slice();
+  ch.counts_files = {};
+  for (const p of m2.counters) {
+    const c = m2.counts[p];
+    ch.counts_files[p] = { file: m2.files[p], modified: c.modified, boundaries: Object.values(c.sections).reduce((a, s) => a + s.boundaries.length, 0) };
+  }
+  if (state.person) ch.reviewed_by = state.person;
+}
+
+function runMatching() {
+  if (!state.project) return;
+  if (m2.counters.length < 2) { toast('Load the counts files of at least two counters (Method C uses three).', 'err'); return; }
+  const tol = parseFloat($('dTol').value), win = parseInt($('dWin').value, 10);
+  if (!(tol > 0 && tol <= 1) || !(win >= 2)) { toast('Tolerance must be between 0 and 1, window at least 2.', 'err'); return; }
+  let keep = false;
+  if (m2.chrono) {
+    const manual = Object.values(m2.chrono.sections).reduce((a, cs) => a + cs.groups.filter(g => g.manual).length, 0);
+    if (!confirm('Re-run the automatic matching for all sections?')) return;
+    if (manual) keep = confirm(`Keep the ${manual} manually edited groups?\n\nOK keeps them and re-matches the rest. Cancel re-matches everything.`);
+  } else {
+    m2.chrono = newChronoObj();
+  }
+  m2.chrono.settings = { tolerance_fraction: round(tol, 3), window: win };
+  m2Invalidate();
+  recordProvenance();
+  for (const sec of state.project.sections) {
+    const P = m2Pos()[sec.id] || {};
+    if (Object.keys(P).length) autoMatchSection(sec, keep);
+    else delete m2.chrono.sections[sec.id];
+  }
+  undo.decide.length = 0; redo.decide.length = 0;
+  m2.sel = null;
+  touchChrono();
+  m2Invalidate();
+  refreshAll();
+  const r = m2Result();
+  toast(`Matched: ${r.varves} varves, +${r.up} / −${r.un}.`);
+}
+
+async function openChrono() {
+  if (!state.project) return;
+  if (m2.dirty && !confirmDiscard('the chronology')) return;
+  try {
+    const r = await pickJSON();
+    if (!r) return;
+    let obj = JSON.parse(await r.file.text());
+    if (!obj || obj.schema !== SCHEMA_CHRONO) throw new Error('This is not a chronology file');
+    if (obj.project !== state.project.project) throw new Error(`This chronology belongs to project ${obj.project}`);
+    const restored = offerRestore(keyChrono(obj.project), obj, 'the chronology');
+    const isRestored = restored !== obj;
+    obj = restored;
+    const missing = (obj.counters || []).filter(p => !m2.counts[p]);
+    if (missing.length) throw new Error(`Load the counts of ${missing.join(', ')} first — the chronology was built from ${obj.counters.join(', ')}.`);
+    const notes = remapSections(obj, 'Chronology');
+    const extra = m2.counters.filter(p => !(obj.counters || []).includes(p));
+    if (extra.length) notes.push(`${extra.join(', ')} not in this chronology — re-run the matching to include them.`);
+    for (const p of obj.counters || []) {
+      const f = obj.counts_files && obj.counts_files[p];
+      if (f && f.modified !== m2.counts[p].modified) notes.push(`The counts of ${p} changed since the matching.`);
+    }
+    m2.chrono = obj; m2.handle = r.handle; m2.fileName = r.file.name; m2.sel = null;
+    const rc = reconcileChrono();
+    if (rc.removed || rc.added) notes.push(`${rc.removed} matched boundaries no longer exist; ${rc.added} new boundaries to review.`);
+    m2.dirty = isRestored || rc.removed > 0 || rc.added > 0;
+    undo.decide.length = 0; redo.decide.length = 0;
+    refreshAll();
+    toast(notes.length ? notes.join(' ') : 'Chronology opened.', notes.length ? 'err' : '');
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
+async function saveChrono() {
+  if (!m2.chrono) { toast('Run the matching first.', 'err'); return; }
+  if (state.person) m2.chrono.reviewed_by = state.person;
+  try {
+    const name = `${m2.chrono.project}.chronology.json`;
+    const res = await saveText(JSON.stringify(frozenChrono(), null, 2) + '\n', m2.handle, name);
+    if (!res.ok) return;
+    if (res.handle) m2.handle = res.handle;
+    m2.dirty = false;
+    store.del(keyChrono(m2.chrono.project));
+    refreshTitle(); renderDecide();
+    toast(res.how === 'saved' ? 'Chronology saved.' : `Chronology downloaded as ${name}.`);
+  } catch (err) {
+    toast('Saving failed: ' + err.message, 'err');
+  }
+}
+
+function chronoCSV() {
+  const r = m2Result();
+  const head = ['project', 'section', 'group_id', 'varve_no', 'included', 'status', 'n_agree', 'n_counters', 'persons', 's_mm',
+    'core_depth_mm', 'top_mm', 'bottom_mm', 'unc_pos_cum', 'unc_neg_cum', 'checked', 'manual'];
+  const f4 = v => (v == null || !isFinite(v) ? '' : v.toFixed(4));
+  const rows = r.rows.map(x => [m2.chrono.project, x.sec, x.g.id, x.varve ?? '', x.included, x.status, x.n, x.N,
+    x.ms.map(m => m.p).join(';'), f4(x.smm), f4(x.depth), f4(x.top), f4(x.bottom), x.up, x.un, !!x.g.checked, !!x.g.manual]);
+  return [head, ...rows].map(rw => rw.map(csvCell).join(',')).join('\n') + '\n';
+}
+function exportChronoCSV() {
+  if (!m2.chrono) { toast('Run the matching first.', 'err'); return; }
+  download(chronoCSV(), `${m2.chrono.project}.chronology.csv`, 'text/csv');
+  const noDepth = state.project.sections.filter(s => m2.chrono.sections[s.id] && (!(s.dpi > 0) || !anchored(s))).map(s => s.id);
+  toast(noDepth.length ? `Exported. Without DPI or depth anchors: ${noDepth.join(', ')}` : 'CSV exported.', noDepth.length ? 'err' : '');
+}
+
+/* ---- review edits ---- */
+function selGroup() {
+  const s = m2.sel;
+  if (!s || !m2.chrono) return null;
+  const cs = m2.chrono.sections[s.secId];
+  return cs ? cs.groups.find(g => g.id === s.gid) || null : null;
+}
+function m2Select(secId, gid, p, b) {
+  m2.sel = gid ? { secId, gid, p, b } : null;
+  renderDecideSel(); requestDraw();
+}
+function detachSelected() {
+  const s = m2.sel, g = selGroup();
+  if (!g || !s.p) return;
+  if (Object.keys(g.members).length < 2) { toast('This boundary is already on its own.', 'err'); return; }
+  const cs = m2.chrono.sections[s.secId];
+  pushUndo('decide');
+  delete g.members[s.p];
+  g.manual = true; g.checked = false; delete g.new;
+  const ng = { id: nextGroupId(cs), members: { [s.p]: s.b }, manual: true, checked: false };
+  cs.groups.push(ng);
+  cs.groups = sortGroups(s.secId, cs.groups);
+  logEdit(cs, 'detach', { group: g.id, person: s.p, boundary: s.b, new_group: ng.id });
+  m2.sel = { secId: s.secId, gid: ng.id, p: s.p, b: s.b };
+  touchChrono(); renderDecide(); requestDraw();
+}
+function mergeWith(secId, gid2) {
+  const s = m2.sel, g1 = selGroup();
+  if (!g1 || s.secId !== secId || g1.id === gid2) return;
+  const cs = m2.chrono.sections[secId];
+  const g2 = cs.groups.find(g => g.id === gid2);
+  const dup = Object.keys(g1.members).filter(p => g2.members[p]);
+  if (dup.length) { toast(`Both groups contain a boundary of ${dup.join(', ')}. Detach it first (X).`, 'err'); return; }
+  const before = JSON.stringify(cs.groups);
+  const merged = { id: g1.id, members: { ...g1.members, ...g2.members }, manual: true, checked: false };
+  const groups = sortGroups(secId, cs.groups.filter(g => g !== g1 && g !== g2).concat(merged));
+  if (!crossingOK(secId, groups)) { toast('Not merged: the groups would cross another boundary of the same counter.', 'err'); return; }
+  undo.decide.push({ secId, data: before }); redo.decide.length = 0;
+  cs.groups = groups;
+  logEdit(cs, 'merge', { groups: [g1.id, g2.id], into: merged.id });
+  m2.sel = { ...s, gid: merged.id };
+  touchChrono(); renderDecide(); requestDraw();
+}
+function toggleChecked() {
+  const g = selGroup();
+  if (!g) return;
+  pushUndo('decide');
+  g.checked = !g.checked;
+  touchChrono(); renderDecide(); requestDraw();
+}
+
+/* ---- review navigation ---- */
+function reviewList() {
+  const only = $('dOnlyOpen').checked;
+  return m2Result().rows.filter(r => r.flagged && (!only || !r.g.checked));
+}
+function reviewStep(dir) {
+  if (!m2.chrono) return;
+  const list = reviewList();
+  if (!list.length) { toast('Nothing to review.'); return; }
+  const rows = m2Result().rows;
+  const cur = m2.sel ? rows.findIndex(r => r.sec === m2.sel.secId && r.g.id === m2.sel.gid) : -1;
+  let target;
+  if (dir > 0) target = list.find(r => rows.indexOf(r) > cur) || list[0];
+  else target = [...list].reverse().find(r => rows.indexOf(r) < cur) || list[list.length - 1];
+  if (target.sec !== state.secId) selectSection(target.sec);
+  const m = target.ms[0];
+  m2.sel = { secId: target.sec, gid: target.g.id, p: m.p, b: m.b };
+  centerOnS(secById(target.sec), target.s);
+  renderDecide();
+}
+
+function pathPointAtS(sec, s) {
+  const { offs } = pathInfo(sec);
+  let i = sec.segments.length - 1;
+  while (i > 0 && offs[i] > s) i--;
+  return pointAt(sec.segments[i], s - offs[i]);
+}
+function centerOnS(sec, s) {
+  if (!sec || !sec.segments.length || !curImg()) return;
+  const { pt } = pathPointAtS(sec, s);
+  if (view.scale < 0.6) view.scale = 1;
+  updM();
+  const q = toScreen(pt);
+  view.tx += W() / 2 - q[0]; view.ty += H() / 2 - q[1];
+  updM(); requestDraw();
+}
+
+/* ---- drawing: parallel tracks, links, decisions ---- */
+function decideLayout(sec) {
+  const r = m2Result(), u = R.u, N = m2.counters.length;
+  const out = [];
+  for (const row of r.rows) {
+    if (row.sec !== sec.id) continue;
+    const pts = row.ms.map(m => {
+      const { pt, dir } = pathPointAtS(sec, m.s);
+      const { P, n } = screenNormal(pt, dir);
+      const o = (m2.counters.indexOf(m.p) - (N - 1) / 2) * TRACK * u;
+      return { m, P: [P[0] + n[0] * o, P[1] + n[1] * o], n, o };
+    }).sort((a, b) => a.o - b.o);
+    const { pt, dir } = pathPointAtS(sec, row.s);
+    const c = screenNormal(pt, dir);
+    out.push({ row, pts, C: c.P, n: c.n });
+  }
+  return out;
+}
+function drawDecide(sec) {
+  if (!m2.chrono || !sec.segments.length) return;
+  const u = R.u, N = m2.counters.length, half = ((N - 1) / 2) * TRACK * u;
+  const lay = decideLayout(sec);
+  const w = R.w ?? W(), h = R.h ?? H(), mg = 60 * u;
+  const vis = lay.filter(L => L.C[0] > -mg && L.C[1] > -mg && L.C[0] < w + mg && L.C[1] < h + mg);
+  const sel = !R.exp && m2.sel && m2.sel.secId === sec.id ? m2.sel : null;
+  if (R.layers.marks) {
+    for (const L of vis) {
+      const col = STATUS_COLORS[L.row.status], isSel = sel && sel.gid === L.row.g.id;
+      if (L.pts.length > 1) {
+        ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath(); L.pts.forEach((q, i) => (i ? ctx.lineTo(q.P[0], q.P[1]) : ctx.moveTo(q.P[0], q.P[1])));
+        ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.lineWidth = (isSel ? 8 : 6.5) * u; ctx.stroke();
+        ctx.strokeStyle = isSel ? '#fff' : col; ctx.lineWidth = (isSel ? 4.5 : 3.5) * u; ctx.stroke();
+        ctx.restore();
+      }
+      for (const q of L.pts) {
+        ctx.beginPath(); ctx.arc(q.P[0], q.P[1], 4.5 * u, 0, Math.PI * 2);
+        ctx.fillStyle = counterColor(q.m.p); ctx.fill();
+        ctx.lineWidth = 1.5 * u; ctx.strokeStyle = '#000'; ctx.stroke();
+        if (sel && sel.gid === L.row.g.id && sel.p === q.m.p) {
+          ctx.beginPath(); ctx.arc(q.P[0], q.P[1], 8 * u, 0, Math.PI * 2);
+          ctx.lineWidth = 2 * u; ctx.strokeStyle = '#fff'; ctx.stroke();
+        }
+      }
+      if (L.row.status === 'minority') {
+        const q = L.pts[0];
+        ctx.beginPath(); ctx.arc(q.P[0], q.P[1], 10 * u, 0, Math.PI * 2);
+        ctx.lineWidth = 2 * u; ctx.strokeStyle = STATUS_COLORS.minority; ctx.stroke();
+      }
+    }
+  }
+  let lastLab = null;
+  for (const L of vis) {
+    const off = half + 16 * u;
+    if (R.layers.nums && L.row.included) {
+      const x = L.C[0] + L.n[0] * off, y = L.C[1] + L.n[1] * off;
+      if (!lastLab || Math.hypot(x - lastLab[0], y - lastLab[1]) > 22 * u) { label(String(L.row.varve), x, y, '#fff', 'center'); lastLab = [x, y]; }
+    }
+    if (!R.exp && L.row.flagged && !L.row.g.checked) {
+      label('?', L.C[0] - L.n[0] * off, L.C[1] - L.n[1] * off, STATUS_COLORS.majority, 'center');
+    }
+  }
+}
+function m2Hit(sec, sx, sy) {
+  if (!m2.chrono) return null;
+  let best = null, bd = 9;
+  for (const L of decideLayout(sec)) for (const q of L.pts) {
+    const d = Math.hypot(q.P[0] - sx, q.P[1] - sy);
+    if (d < bd) { bd = d; best = { gid: L.row.g.id, p: q.m.p, b: q.m.b }; }
+  }
+  return best;
+}
+function decideClick(sec, sx, sy, shift) {
+  const hit = m2Hit(sec, sx, sy);
+  if (!hit) { if (!shift) m2Select(null); return; }
+  if (shift && m2.sel) mergeWith(sec.id, hit.gid);
+  else m2Select(sec.id, hit.gid, hit.p, hit.b);
+}
+
+/* ---- panel ---- */
+function renderDecide() {
+  const has = !!state.project;
+  $('dMatch').disabled = !has || m2.counters.length < 2;
+  $('dMatch').textContent = m2.chrono ? 'Re-run matching' : 'Match automatically';
+  $('dOpen').disabled = !has || !m2.counters.length;
+  $('dSave').disabled = !m2.chrono; $('dCsv').disabled = !m2.chrono;
+  const st = m2Settings();
+  if (document.activeElement !== $('dTol')) $('dTol').value = st.tolerance_fraction;
+  if (document.activeElement !== $('dWin')) $('dWin').value = st.window;
+  $('dCounters').innerHTML = m2.counters.map(p => {
+    const c = m2.counts[p];
+    const n = Object.values(c.sections).reduce((a, s) => a + s.boundaries.length, 0);
+    return `<div class="item"><div class="top"><span class="chip" style="background:${counterColor(p)}"></span>
+      <span class="name">${esc(p)}</span><span class="tag">${n} boundaries</span></div>
+      <div class="sub">${esc(m2.files[p] || '')} · ${esc((c.modified || '').replace('T', ' ').replace('Z', ' UTC'))}</div></div>`;
+  }).join('') || '<p class="hint" style="margin:0">No counts loaded.</p>';
+  $('dInfo').textContent = !has ? 'Open a project first.'
+    : !m2.chrono ? (m2.counters.length >= 2 ? 'Ready to match.' : 'Load the counts files of all counters.')
+    : (m2.handle ? `File: ${m2.handle.name}` : m2.fileName ? `Opened from ${m2.fileName}` : 'Not saved yet') + (m2.dirty ? ' · unsaved changes' : '');
+  if (m2.chrono) {
+    const r = m2Result();
+    const open = Object.values(r.perSec).reduce((a, s) => a + s.open, 0);
+    const matched = Object.values(r.perSec).filter(s => s.matched).length;
+    $('dSummary').innerHTML = [
+      ['Varves', `${r.varves} (+${r.up} / −${r.un})`],
+      ['Counters', `${m2.counters.length} · majority ${majority(m2.counters.length)}`],
+      ['Sections', `${matched} of ${state.project.sections.length} matched`],
+      ['To review', `${open} open`],
+    ].map(([t, v]) => `<dt>${t}</dt><dd>${esc(v)}</dd>`).join('');
+  } else $('dSummary').innerHTML = '';
+  renderDecideSection();
+  renderDecideSel();
+}
+function renderDecideSection() {
+  const sec = curSec();
+  if (!sec || !m2.chrono) { $('dSecStats').innerHTML = ''; return; }
+  const s = m2Result().perSec[sec.id];
+  if (!s || !s.matched) { $('dSecStats').innerHTML = '<dt>Status</dt><dd>not matched</dd>'; return; }
+  const rows = [
+    ['Counters here', `${s.N}${s.N < m2.counters.length ? ' ⚠ not everyone counted this section' : ''} · majority ${s.k}`],
+    ['Groups', String(s.groups)],
+    ['All agree', String(s.all)],
+    ['Majority', `${s.majority} (−${s.majority})`],
+    ['Rejected', `${s.minority} (+${s.minority})`],
+    ['Varves here', String(s.varves)],
+    ['To review', `${s.open} open of ${s.flagged} flagged`],
+  ];
+  $('dSecStats').innerHTML = rows.map(([t, v]) => `<dt>${t}</dt><dd>${esc(v)}</dd>`).join('');
+}
+function renderDecideSel() {
+  const g = selGroup();
+  $('dDetach').disabled = !g || Object.keys(g.members).length < 2;
+  $('dCheck').disabled = !g;
+  if (!g) { $('dSel').innerHTML = '<p class="hint" style="margin:6px 0 0">No group selected.</p>'; return; }
+  const row = m2Result().byGid.get(m2.sel.secId + '|' + g.id);
+  if (!row) { $('dSel').innerHTML = ''; return; }
+  const sec = secById(row.sec), k = mmPerPx(sec);
+  const mm = v => (k ? fmt(v * k, 3) + ' mm' : Math.round(v) + ' px');
+  const flags = [row.near ? 'members far apart' : null, g.new ? 'new boundary' : null, g.manual ? 'edited by hand' : null].filter(Boolean);
+  $('dSel').innerHTML = `<div class="msg" style="background:#f3f5f7">
+    <b style="color:${row.status === 'all' ? 'var(--ok)' : row.status === 'majority' ? 'var(--warn-ink)' : 'var(--err)'}">${row.n} of ${row.N}: ${esc(STATUS_TEXT[row.status])}</b><br>
+    ${row.included ? `Varve ${row.varve}` : 'Not a varve'} · ${esc(g.id)}${row.depth != null ? ' · ' + fmt(row.depth / 10, 4) + ' cm' : ''}<br>
+    ${row.ms.map(m => `<span class="chip" style="background:${counterColor(m.p)}"></span>${esc(m.p)} ${mm(m.s)}${m.p === m2.sel.p ? ' ◂' : ''}`).join('<br>')}
+    ${row.n > 1 ? `<br>Spread ${mm(row.spread)} · tolerance ${mm(row.tol)}` : ''}
+    ${flags.length ? '<br>' + esc(flags.join(' · ')) : ''}${g.checked ? '<br>✓ checked' : ''}</div>`;
+  $('dCheck').textContent = g.checked ? 'Unmark checked (C)' : 'Checked (C)';
+}
+
+/* =====================================================================
+   Module 3 — final depths (step 1: cracks on the path), DESIGN.md §7.1
+   Reads a chronology (Module 2), marks where cracks cross the path and
+   recomputes the core depth of every varve with the crack widths left out.
+   ===================================================================== */
+const SCHEMA_THICK = 'varves/thickness@1';
+const CRACK_FILL = 'rgba(255,79,216,.28)', CRACK_LINE = '#ff4fd8';
+const m3 = { chrono: null, chronoName: null, doc: null, handle: null, fileName: null, dirty: false, pending: null, sel: null, _res: null };
+
+function m3Reset() {
+  Object.assign(m3, { chrono: null, chronoName: null, doc: null, handle: null, fileName: null, dirty: false, pending: null, sel: null, _res: null,
+    draft: null, stage: null, upper: null, hsel: null, lsel: null, vsel: null, lineCrack: null, _thick: null, _thickFor: null });
+  if (typeof undo !== 'undefined') { undo.final.length = 0; redo.final.length = 0; }
+}
+
+/* A chronology with the positions resolved, as saved and as read by Module 3. */
+function frozenChrono() {
+  const r = m2Result();
+  const out = JSON.parse(JSON.stringify(m2.chrono));
+  for (const [secId, cs] of Object.entries(out.sections)) {
+    cs.n_counters = r.perSec[secId] ? r.perSec[secId].N : null;
+    for (const g of cs.groups) {
+      const row = r.byGid.get(secId + '|' + g.id);
+      g.s_px = row ? round(row.s, 2) : null;
+      g.n = row ? row.n : Object.keys(g.members).length;
+    }
+  }
+  out.summary = { varves: r.varves, unc_pos: r.up, unc_neg: r.un, counters: m2.counters.length };
+  return out;
+}
+
+function m3Sec(id, create) {
+  if (!m3.doc) return null;
+  let s = m3.doc.sections[id];
+  if (!s && create) {
+    const sec = secById(id);
+    s = m3.doc.sections[id] = { image_sha256: sec.image.sha256, path_sig: pathSig(sec), cracks_done: false, next: 0, cracks: [] };
+  }
+  return s || null;
+}
+function ensureDoc() {
+  if (m3.doc) return m3.doc;
+  const t = nowISO();
+  let doc = { schema: SCHEMA_THICK, app: APP, project: state.project.project, measured_by: state.person, chronology: null, sections: {}, created: t, modified: t };
+  const restored = offerRestore(keyThick(doc.project), null, 'the Module 3 file');
+  if (restored) doc = restored;
+  m3.doc = doc; m3.dirty = true;
+  return doc;
+}
+function touchM3() {
+  m3.doc.modified = nowISO();
+  if (state.person) m3.doc.measured_by = state.person;
+  m3.dirty = true;
+  m3._res = null;
+  scheduleAutosave();
+  refreshTitle();
+}
+
+/* Cracks of a section with their positions on the current path (s, upper < lower). */
+function m3Cracks(secId) {
+  const sec = secById(secId), ms = m3Sec(secId, false);
+  if (!sec || !ms || !sec.segments.length) return [];
+  const { L } = pathInfo(sec);
+  return ms.cracks.map(c => {
+    const a = locate(sec, [c.x1, c.y1]), b = locate(sec, [c.x2, c.y2]);
+    const sa = clamp(a.s, 0, L), sb = clamp(b.s, 0, L);
+    return { c, s_upper_px: Math.min(sa, sb), s_lower_px: Math.max(sa, sb) };
+  }).sort((x, y) => x.s_upper_px - y.s_upper_px);
+}
+function crackWidthBefore(cr, s) {
+  let w = 0;
+  for (const c of cr) {
+    if (s >= c.s_lower_px) w += c.s_lower_px - c.s_upper_px;
+    else if (s > c.s_upper_px) w += s - c.s_upper_px;   // inside a crack: collapses to its upper edge
+  }
+  return w;
+}
+const crackTotal = cr => cr.reduce((a, c) => a + c.s_lower_px - c.s_upper_px, 0);
+function depthCorrected(sec, s, L, cr) {
+  if (!anchored(sec) || !(L > 0)) return null;
+  const Le = L - crackTotal(cr);
+  if (!(Le > 0)) return null;
+  return sec.anchors.top_mm + ((s - crackWidthBefore(cr, s)) / Le) * (sec.anchors.bottom_mm - sec.anchors.top_mm);
+}
+function stretchCorrected(sec, cr) {
+  const { L } = pathInfo(sec), k = mmPerPx(sec);
+  if (!anchored(sec) || !k || !(L > 0)) return null;
+  return (sec.anchors.bottom_mm - sec.anchors.top_mm) / ((L - crackTotal(cr)) * k);
+}
+
+/* Final varves: the accepted groups of the chronology, at crack-corrected depths. */
+function m3Result() {
+  if (m3._res) return m3._res;
+  if (!state.project) return { rows: [], perSec: {}, varves: 0, up: 0, un: 0 };
+  const rows = [], perSec = {};
+  let varve = 0, up = 0, un = 0, prevD = null, first = true;
+  for (const sec of state.project.sections) {
+    const cs = m3.chrono && m3.chrono.sections[sec.id];
+    const { L } = pathInfo(sec), cr = m3Cracks(sec.id), ms = m3Sec(sec.id, false);
+    if (first) { prevD = anchored(sec) ? sec.anchors.top_mm : null; first = false; }
+    const st = { has: !!cs, varves: 0, up: 0, un: 0, cracks: cr.length, width: crackTotal(cr), done: !!(ms && ms.cracks_done), stale: !!(cs && cs.path_sig && cs.path_sig !== pathSig(sec)) };
+    if (cs) {
+      const N = cs.n_counters ?? 0, k = majority(N);
+      const gs = cs.groups.filter(g => g.s_px != null).sort((a, b) => a.s_px - b.s_px);
+      for (const g of gs) {
+        const n = g.n ?? Object.keys(g.members).length;
+        const status = n >= N ? 'all' : n >= k ? 'majority' : 'minority';
+        if (status === 'minority') { up++; st.up++; continue; }
+        varve++; st.varves++;
+        if (status === 'majority') { un++; st.un++; }
+        const d = depthCorrected(sec, g.s_px, L, cr);
+        rows.push({ sec: sec.id, g, s: g.s_px, varve, status, top: prevD, bottom: d, raw: coreDepth(sec, g.s_px, L), up, un, corrected: st.done });
+        prevD = d;
+      }
+    }
+    perSec[sec.id] = st;
+  }
+  return (m3._res = { rows, perSec, varves: varve, up, un });
+}
+
+/* ---- loading the chronology ---- */
+function useChrono(obj, name) {
+  const bad = Object.values(obj.sections || {}).some(cs => cs.groups.some(g => g.s_px === undefined) || cs.n_counters === undefined);
+  if (bad) throw new Error('This chronology has no saved positions. Open it in “2 Decide” with the counts and save it again.');
+  const notes = remapSections(obj, 'Chronology');
+  m3.chrono = obj; m3.chronoName = name; m3._res = null;
+  const r = m3Result();
+  const stale = Object.entries(r.perSec).filter(([, s]) => s.stale).map(([id]) => id);
+  if (stale.length) notes.push(`The path of ${stale.join(', ')} changed after the matching — positions may be off.`);
+  if (m3.doc) {
+    m3.doc.chronology = { file: name, modified: obj.modified, varves: r.varves, unc_pos: r.up, unc_neg: r.un };
+    touchM3();
+  }
+  refreshAll();
+  toast(notes.length ? notes.join(' ') : `Chronology loaded: ${r.varves} varves (+${r.up} / −${r.un}).`, notes.length ? 'err' : '');
+}
+async function openChronoM3() {
+  if (!state.project) return;
+  try {
+    const r = await pickJSON();
+    if (!r) return;
+    const obj = JSON.parse(await r.file.text());
+    if (!obj || obj.schema !== SCHEMA_CHRONO) throw new Error('This is not a chronology file');
+    if (obj.project !== state.project.project) throw new Error(`This chronology belongs to project ${obj.project}`);
+    useChrono(obj, r.file.name);
+  } catch (err) { toast(err.message, 'err'); }
+}
+function takeChronoFromM2() {
+  if (!m2.chrono) { toast('There is no chronology in “2 Decide”.', 'err'); return; }
+  try { useChrono(frozenChrono(), m2.handle ? m2.handle.name : m2.fileName || '2 Decide (this session)'); }
+  catch (err) { toast(err.message, 'err'); }
+  if (m2.dirty) toast('Taken from 2 Decide. Remember to save the chronology there too.');
+}
+
+/* ---- the Module 3 file ---- */
+async function openThick() {
+  if (!state.project) return;
+  if (m3.dirty && !confirmDiscard('the Module 3 file')) return;
+  try {
+    const r = await pickJSON();
+    if (!r) return;
+    let obj = JSON.parse(await r.file.text());
+    if (!obj || obj.schema !== SCHEMA_THICK) throw new Error('This is not a Module 3 (thickness) file');
+    if (obj.project !== state.project.project) throw new Error(`This file belongs to project ${obj.project}`);
+    const restored = offerRestore(keyThick(obj.project), obj, 'the Module 3 file');
+    const isRestored = restored !== obj;
+    obj = restored;
+    const notes = remapSections(obj, 'Module 3');
+    m3.doc = obj; m3.handle = r.handle; m3.fileName = r.file.name; m3.dirty = isRestored; m3._res = null; m3.sel = null; m3.pending = null;
+    undo.final.length = 0; redo.final.length = 0;
+    refreshAll();
+    toast(notes.length ? notes.join(' ') : 'Module 3 file opened.' + (m3.chrono ? '' : ' Load the chronology too.'), notes.length ? 'err' : '');
+  } catch (err) { toast(err.message, 'err'); }
+}
+async function saveThick() {
+  if (!m3.doc) { toast('Nothing to save yet.', 'err'); return; }
+  for (const sec of state.project.sections) {
+    const ms = m3Sec(sec.id, false);
+    if (!ms) continue;
+    ms.image_sha256 = sec.image.sha256; ms.path_sig = pathSig(sec);
+    const byId = new Map(m3Cracks(sec.id).map(c => [c.c.id, c]));
+    for (const c of ms.cracks) { const k = byId.get(c.id); if (k) { c.s_upper_px = round(k.s_upper_px, 2); c.s_lower_px = round(k.s_lower_px, 2); } }
+  }
+  if (m3.chrono) { const r = m3Result(); m3.doc.chronology = { file: m3.chronoName, modified: m3.chrono.modified, varves: r.varves, unc_pos: r.up, unc_neg: r.un }; }
+  try {
+    const name = `${m3.doc.project}.thickness.json`;
+    const res = await saveText(JSON.stringify(m3.doc, null, 2) + '\n', m3.handle, name);
+    if (!res.ok) return;
+    if (res.handle) m3.handle = res.handle;
+    m3.dirty = false;
+    store.del(keyThick(m3.doc.project));
+    refreshTitle(); renderFinal();
+    toast(res.how === 'saved' ? 'Module 3 file saved.' : `Module 3 file downloaded as ${name}.`);
+  } catch (err) { toast('Saving failed: ' + err.message, 'err'); }
+}
+
+function varvesCSV() {
+  const r = m3Result(), f4 = v => (v == null || !isFinite(v) ? '' : v.toFixed(4));
+  const head = ['project', 'section', 'varve_no', 'status', 'top_depth_mm', 'bottom_depth_mm', 'bottom_depth_uncorrected_mm', 'unc_pos_cum', 'unc_neg_cum', 'crack_corrected'];
+  const rows = r.rows.map(x => [state.project.project, x.sec, x.varve, x.status, f4(x.top), f4(x.bottom), f4(x.raw), x.up, x.un, x.corrected]);
+  return [head, ...rows].map(rw => rw.map(csvCell).join(',')).join('\n') + '\n';
+}
+function cracksCSV() {
+  const head = ['project', 'section', 'crack_id', 'crosses_path', 's_upper_mm', 's_lower_mm', 'width_mm', 'core_depth_mm'];
+  const rows = [], f4 = v => (v == null || !isFinite(v) ? '' : v.toFixed(4));
+  for (const sec of state.project.sections) {
+    const cr = m3Cracks(sec.id), k = mmPerPx(sec), { L } = pathInfo(sec);
+    for (const c of cr) rows.push([state.project.project, sec.id, c.c.id, true, k ? f4(c.s_upper_px * k) : '', k ? f4(c.s_lower_px * k) : '',
+      k ? f4((c.s_lower_px - c.s_upper_px) * k) : '', f4(depthCorrected(sec, c.s_upper_px, L, cr))]);
+  }
+  return [head, ...rows].map(rw => rw.map(csvCell).join(',')).join('\n') + '\n';
+}
+function exportVarvesCSV() {
+  if (!m3.chrono) { toast('Load the chronology first.', 'err'); return; }
+  download(varvesCSV(), `${state.project.project}.varves.csv`, 'text/csv');
+  const r = m3Result();
+  const open = state.project.sections.filter(s => r.perSec[s.id].has && !r.perSec[s.id].done).map(s => s.id);
+  toast(open.length ? `Exported. Cracks not marked as complete in: ${open.join(', ')} (crack_corrected = false).` : 'Varves CSV exported.', open.length ? 'err' : '');
+}
+function exportCracksCSV() {
+  if (!m3.doc) { toast('No cracks marked yet.', 'err'); return; }
+  download(cracksCSV(), `${state.project.project}.cracks.csv`, 'text/csv');
+  toast('Cracks CSV exported.');
+}
+
+/* ---- editing cracks ---- */
+function crackClick(sec, p) {
+  if (!sec.segments.length) { toast('This section has no path.', 'err'); return; }
+  p = [round(p[0], 1), round(p[1], 1)];
+  if (!m3.pending) { m3.pending = p; m3.sel = null; renderFinalSel(); requestDraw(); return; }
+  const a = locate(sec, m3.pending), b = locate(sec, p), { L } = pathInfo(sec);
+  const su = Math.min(a.s, b.s), sl = Math.max(a.s, b.s);
+  if (sl - su < 0.5) { toast('The two edges are at the same place on the path.', 'err'); return; }
+  if (su < 0 || sl > L) { toast('A crack must lie on the path.', 'err'); m3.pending = null; requestDraw(); return; }
+  if (m3Cracks(sec.id).some(c => su < c.s_lower_px && sl > c.s_upper_px)) { toast('This overlaps a crack that is already marked.', 'err'); m3.pending = null; requestDraw(); return; }
+  ensureDoc();
+  pushUndo('final');
+  const ms = m3Sec(sec.id, true);
+  ms.next = (ms.next || 0) + 1;
+  const id = 'c' + String(ms.next).padStart(3, '0');
+  ms.cracks.push({ id, x1: m3.pending[0], y1: m3.pending[1], x2: p[0], y2: p[1], s_upper_px: round(su, 2), s_lower_px: round(sl, 2) });
+  m3.pending = null; m3.sel = id;
+  touchM3(); renderFinal(); requestDraw();
+}
+function deleteCrack(secId, id) {
+  const ms = m3Sec(secId, false);
+  if (!ms) return;
+  const i = ms.cracks.findIndex(c => c.id === id);
+  if (i < 0) return;
+  pushUndo('final');
+  ms.cracks.splice(i, 1);
+  if (m3.sel === id) m3.sel = null;
+  touchM3(); renderFinal(); requestDraw();
+}
+/* Hit test on crack edges (returns {id, edge: 1|2}) or inside the band ({id}). */
+function crackHit(sec, sx, sy, edgesOnly) {
+  const BAND = 18;
+  let best = null, bd = 9;
+  for (const k of m3Cracks(sec.id)) {
+    for (const e of [1, 2]) {
+      const q = toScreen([k.c['x' + e], k.c['y' + e]]);
+      const d = Math.hypot(q[0] - sx, q[1] - sy);
+      if (d < bd) { bd = d; best = { id: k.c.id, edge: e }; }
+    }
+  }
+  if (best || edgesOnly) return best;
+  for (const k of m3Cracks(sec.id)) {
+    const p = toImage(sx, sy), l = locate(sec, p);
+    if (l && l.s >= k.s_upper_px - 2 && l.s <= k.s_lower_px + 2 && l.d * view.scale < BAND) return { id: k.c.id };
+  }
+  return null;
+}
+
+/* ---- drawing ---- */
+function drawFinal(sec) {
+  const u = R.u, BAND = 18 * u;
+  if (R.layers.marks) {
+    for (const k of m3Cracks(sec.id)) {
+      const a = pathPointAtS(sec, k.s_upper_px), b = pathPointAtS(sec, k.s_lower_px);
+      const A = screenNormal(a.pt, a.dir), B = screenNormal(b.pt, b.dir);
+      ctx.beginPath();
+      ctx.moveTo(A.P[0] - A.n[0] * BAND, A.P[1] - A.n[1] * BAND); ctx.lineTo(A.P[0] + A.n[0] * BAND, A.P[1] + A.n[1] * BAND);
+      ctx.lineTo(B.P[0] + B.n[0] * BAND, B.P[1] + B.n[1] * BAND); ctx.lineTo(B.P[0] - B.n[0] * BAND, B.P[1] - B.n[1] * BAND); ctx.closePath();
+      ctx.fillStyle = CRACK_FILL; ctx.fill();
+      const isSel = !R.exp && m3.sel === k.c.id;
+      ctx.lineWidth = (isSel ? 2.5 : 1.5) * u; ctx.strokeStyle = isSel ? '#fff' : CRACK_LINE; ctx.stroke();
+      if (!R.exp) for (const e of [1, 2]) dot([k.c['x' + e], k.c['y' + e]], 3.5, CRACK_LINE);
+    }
+  }
+  if (!R.exp && m3.pending) {
+    const pts = [m3.pending];
+    if (state.cursor) pts.push(state.cursor);
+    strokePoly(pts, CRACK_LINE, 1.5, [5, 4]);
+    dot(m3.pending, 4, CRACK_LINE);
+  }
+  if (!m3.chrono || !sec.segments.length) return;
+  const T = TICK * u, w = R.w ?? W(), h = R.h ?? H(), mg = 50 * u;
+  let lastLab = null;
+  for (const row of m3Result().rows) {
+    if (row.sec !== sec.id) continue;
+    const { pt, dir } = pathPointAtS(sec, row.s);
+    const { P, n } = screenNormal(pt, dir);
+    if (P[0] < -mg || P[1] < -mg || P[0] > w + mg || P[1] > h + mg) continue;
+    if (R.layers.marks) {
+      ctx.save(); ctx.lineCap = 'round'; ctx.beginPath();
+      ctx.moveTo(P[0] - n[0] * T, P[1] - n[1] * T); ctx.lineTo(P[0] + n[0] * T, P[1] + n[1] * T);
+      ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.lineWidth = 4.5 * u; ctx.stroke();
+      ctx.strokeStyle = STATUS_COLORS[row.status]; ctx.lineWidth = 2 * u; ctx.stroke();
+      ctx.restore();
+    }
+    if (R.layers.nums) {
+      const lx = P[0] + n[0] * (T + 9 * u), ly = P[1] + n[1] * (T + 9 * u);
+      if (!lastLab || Math.hypot(lx - lastLab[0], ly - lastLab[1]) > 20 * u) { label(String(row.varve), lx, ly, '#fff', 'center'); lastLab = [lx, ly]; }
+    }
+  }
+}
+
+/* ---- panel ---- */
+function renderFinal() {
+  const has = !!state.project;
+  $('fOpenChrono').disabled = !has; $('fTake').disabled = !m2.chrono;
+  $('fOpen').disabled = !has; $('fSave').disabled = !m3.doc;
+  $('fVarvesCsv').disabled = !m3.chrono; $('fCracksCsv').disabled = !m3.doc;
+  $('fChronoInfo').textContent = !m3.chrono ? 'No chronology loaded. Open the chronology file saved in “2 Decide”, or take it from there.'
+    : `${m3.chronoName} · ${m3.chrono.summary ? m3.chrono.summary.varves + ' varves' : ''}`;
+  $('fInfo').textContent = !m3.doc ? 'A new file is started with the first crack.'
+    : (m3.handle ? `File: ${m3.handle.name}` : m3.fileName ? `Opened from ${m3.fileName}` : 'Not saved yet') + (m3.dirty ? ' · unsaved changes' : '');
+  const r = m3Result();
+  if (m3.chrono) {
+    const secs = state.project.sections.filter(s => r.perSec[s.id].has);
+    const done = secs.filter(s => r.perSec[s.id].done).length;
+    $('fSummary').innerHTML = [['Varves', `${r.varves} (+${r.up} / −${r.un})`], ['Cracks checked', `${done} of ${secs.length} sections`]]
+      .map(([t, v]) => `<dt>${t}</dt><dd>${esc(v)}</dd>`).join('');
+  } else $('fSummary').innerHTML = '';
+  const sec = curSec();
+  if (!sec) { $('fSecStats').innerHTML = ''; return; }
+  const st = r.perSec[sec.id] || {}, k = mmPerPx(sec), cr = m3Cracks(sec.id);
+  $('fDone').checked = !!st.done; $('fDone').disabled = !has || !sec.segments.length;
+  const s0 = stretchFactor(sec), s1 = stretchCorrected(sec, cr);
+  $('m3Pos').value = m3Settings().positions;
+  renderM3Sel();
+  $('fSecStats').innerHTML = [
+    ['Varves here', st.has ? `${st.varves} (+${st.up} / −${st.un})` : 'not in the chronology'],
+    ['Cracks', `${cr.length}` + (k && cr.length ? ` · ${fmt(crackTotal(cr) * k, 3)} mm in total` : '')],
+    ['Stretch factor', s0 ? `${fmt(s0, 4)} → ${fmt(s1, 4)} without cracks` : '—'],
+  ].map(([t, v]) => `<dt>${t}</dt><dd>${esc(v)}</dd>`).join('') + (st.stale ? '<dt>⚠</dt><dd>path changed after the matching</dd>' : '');
+  renderFinalSel();
+}
+function renderFinalSel() {
+  const sec = curSec();
+  const k = sec && m3.sel ? m3Cracks(sec.id).find(c => c.c.id === m3.sel) : null;
+  $('fDel').disabled = !k;
+  if (m3.pending) { $('fSel').innerHTML = '<div class="msg warn">Now click the other edge of the crack (Esc cancels).</div>'; return; }
+  if (!k) { $('fSel').innerHTML = ''; return; }
+  const kk = mmPerPx(sec), { L } = pathInfo(sec), cr = m3Cracks(sec.id);
+  $('fSel').innerHTML = `<div class="msg" style="background:#f3f5f7">Crack ${esc(k.c.id)} · width ${kk ? fmt((k.s_lower_px - k.s_upper_px) * kk, 3) + ' mm' : Math.round(k.s_lower_px - k.s_upper_px) + ' px'}` +
+    `<br>at ${fmt(depthCorrected(sec, k.s_upper_px, L, cr) / 10, 4)} cm (corrected)</div>`;
+}
+
+/* =====================================================================
+   Module 3, step 2 — varve thickness, DESIGN.md §7.2–7.5
+   Horizons trace each final boundary sideways; one horizon is the base of
+   the varve above and the top of the varve below. Thickness = shortest
+   distance from the base horizon to the top horizon, at several positions,
+   plus an area-based mean. Quick lines are the fallback.
+   ===================================================================== */
+const MEAS_COLOR = '#00e5ff', LINE_COLOR = '#ff9f1c', HOR_COLOR = '#ffffff';
+const M3_TOOL_HINT = {
+  pathcrack: 'Step 1. Where a crack crosses the path, click its upper edge and then its lower edge. Drag an edge to adjust it; right-click or Delete removes a crack.',
+  horizon: 'Select a boundary (click its mark, or ◂ ▸), then click points along that lamina on both sides of the path; Enter, double-click or right-click finishes. The mark on the path is included automatically.',
+  line: 'Quick lines: click the base and then the top of a varve. With a line selected, “Crack on line” (K) and two clicks mark a crack on it.',
+  vcrack: 'A crack inside a varve: trace its upper edge (Enter), then its lower edge (Enter). Its width is subtracted from the thickness.',
+};
+Object.assign(m3, { tool: 'pathcrack', draft: null, stage: null, upper: null, hsel: null, lsel: null, vsel: null, lineCrack: null, _thick: null, _thickFor: null });
+
+const dot2 = (p, q, a) => (p[0] - q[0]) * a[0] + (p[1] - q[1]) * a[1];
+function m3Settings() { return { positions: (m3.doc && m3.doc.settings && m3.doc.settings.positions) || 3 }; }
+function m3SecFull(id) {
+  const ms = m3Sec(id, true);
+  ms.horizons = ms.horizons || {}; ms.lines = ms.lines || []; ms.vcracks = ms.vcracks || [];
+  return ms;
+}
+function distToPoly(p, pts) {
+  if (pts.length === 1) return { d: Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]), q: pts[0] };
+  let best = { d: Infinity, q: null };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1], vx = b[0] - a[0], vy = b[1] - a[1], l2 = vx * vx + vy * vy;
+    const t = l2 ? clamp(((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / l2, 0, 1) : 0;
+    const q = [a[0] + vx * t, a[1] + vy * t], d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+    if (d < best.d) best = { d, q };
+  }
+  return best;
+}
+/* Point of a polyline at coordinate t along axis a (origin O), or null outside it. */
+function polyAtT(pts, O, a, t) {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ta = dot2(pts[i], O, a), tb = dot2(pts[i + 1], O, a);
+    if (ta !== tb && (t - ta) * (t - tb) <= 0) {
+      const f = (t - ta) / (tb - ta);
+      return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f];
+    }
+  }
+  return null;
+}
+function tRange(pts, O, a) { const t = pts.map(p => dot2(p, O, a)); return [Math.min(...t), Math.max(...t)]; }
+/* Axis along the laminae at path position s: the path normal. */
+function laminaAxis(sec, s) { const { pt, dir } = pathPointAtS(sec, s); return { O: pt, a: [-dir[1], dir[0]], dir }; }
+
+/* All thickness results: per section, per final varve. Recomputed when m3Result changes. */
+function m3Thick() {
+  const res = m3Result();
+  if (m3._thick && m3._thickFor === res) return m3._thick;
+  if (!state.project) return { bySec: {} };
+  const K = m3Settings().positions, bySec = {};
+  for (const sec of state.project.sections) {
+    const rows = res.rows.filter(r => r.sec === sec.id);
+    const ms = m3Sec(sec.id, false) || {};
+    const HZ = ms.horizons || {}, lines = ms.lines || [], vcr = ms.vcracks || [];
+    const vcS = vcr.map(c => { const l = locate(sec, [...c.upper, ...c.lower].reduce((a, p, _, all) => [a[0] + p[0] / all.length, a[1] + p[1] / all.length], [0, 0])); return { c, s: l ? l.s : null }; });
+    const out = rows.map((row, j) => ({ row, prev: j ? rows[j - 1] : null, status: j ? 'missing' : 'spans', positions: [], area: null, lines: [] }));
+    out.forEach(v => {
+      if (!v.prev) return;
+      const hb = HZ[v.row.g.id], ht = HZ[v.prev.g.id];
+      if (!hb || !ht) return;
+      const base = hb.points, top = ht.lower || ht.points;
+      const { O, a, dir } = laminaAxis(sec, (v.prev.s + v.row.s) / 2);
+      const rb = tRange(base, O, a), rt = tRange(top, O, a);
+      const t0 = Math.max(rb[0], rt[0]), t1 = Math.min(rb[1], rt[1]);
+      if (!(t1 > t0)) { v.status = 'no overlap'; return; }
+      const cr = vcS.filter(x => x.s != null && x.s > v.prev.s && x.s < v.row.s).map(x => x.c);
+      for (let k = 0; k < K; k++) {
+        const t = t0 + ((k + 0.5) / K) * (t1 - t0);
+        const B = polyAtT(base, O, a, t);
+        if (!B) continue;
+        const { d: raw, q: T } = distToPoly(B, top);
+        let crack = 0;
+        for (const c of cr) { const U = polyAtT(c.upper, O, a, t); if (U) crack += distToPoly(U, c.lower).d; }
+        v.positions.push({ k: k + 1, B, T, raw, crack, net: raw - crack });
+      }
+      let sum = 0, n = 0;
+      for (let m = 0; m < 64; m++) {
+        const t = t0 + ((m + 0.5) / 64) * (t1 - t0);
+        const Bm = polyAtT(base, O, a, t), Tm = polyAtT(top, O, a, t);
+        if (!Bm || !Tm) continue;
+        let hgt = Math.abs(dot2(Bm, Tm, dir));
+        for (const c of cr) { const U = polyAtT(c.upper, O, a, t), Lw = polyAtT(c.lower, O, a, t); if (U && Lw) hgt -= Math.abs(dot2(U, Lw, dir)); }
+        sum += hgt; n++;
+      }
+      v.area = n ? sum / n : null;
+      v.width = t1 - t0;
+      v.status = 'ok';
+    });
+    const unassigned = [];
+    for (const ln of lines) {
+      const l = locate(sec, [(ln.x1 + ln.x2) / 2, (ln.y1 + ln.y2) / 2]);
+      const v = l && out.find(x => x.row.s > l.s && (!x.prev || x.prev.s < l.s));
+      const len = Math.hypot(ln.x2 - ln.x1, ln.y2 - ln.y1), cl = ln.crack ? Math.hypot(ln.crack[1][0] - ln.crack[0][0], ln.crack[1][1] - ln.crack[0][1]) : 0;
+      const m = { ln, raw: len, crack: cl, net: len - cl };
+      if (v) v.lines.push(m); else unassigned.push(m);
+    }
+    bySec[sec.id] = { varves: out, unassigned };
+  }
+  m3._thickFor = res;
+  return (m3._thick = { bySec });
+}
+
+function thicknessCSV() {
+  const T = m3Thick(), f4 = v => (v == null || !isFinite(v) ? '' : v.toFixed(4)), f1 = v => (v == null ? '' : round(v, 1));
+  const head = ['project', 'section', 'varve_no', 'method', 'position_no', 'x_px', 'y_px', 'thickness_px', 'crack_px', 'thickness_mm', 'thickness_corr_mm', 'measured_by'];
+  const rows = [], who = (m3.doc && m3.doc.measured_by) || state.person || '';
+  for (const sec of state.project.sections) {
+    const k = mmPerPx(sec), st = stretchCorrected(sec, m3Cracks(sec.id));
+    const mm = px => (k ? px * k : null), corr = px => (k && st ? px * k * st : null);
+    for (const v of (T.bySec[sec.id] || { varves: [] }).varves) {
+      for (const p of v.positions) rows.push([state.project.project, sec.id, v.row.varve, 'horizon', p.k, f1(p.B[0]), f1(p.B[1]), f4(p.net), f4(p.crack), f4(mm(p.net)), f4(corr(p.net)), who]);
+      if (v.area != null) rows.push([state.project.project, sec.id, v.row.varve, 'horizon_area', '', '', '', f4(v.area), '', f4(mm(v.area)), f4(corr(v.area)), who]);
+      v.lines.forEach((m, i) => rows.push([state.project.project, sec.id, v.row.varve, 'line', i + 1, f1((m.ln.x1 + m.ln.x2) / 2), f1((m.ln.y1 + m.ln.y2) / 2), f4(m.net), f4(m.crack), f4(mm(m.net)), f4(corr(m.net)), who]));
+    }
+  }
+  return [head, ...rows].map(rw => rw.map(csvCell).join(',')).join('\n') + '\n';
+}
+function exportThicknessCSV() {
+  if (!m3.chrono) { toast('Load the chronology first.', 'err'); return; }
+  download(thicknessCSV(), `${state.project.project}.thickness.csv`, 'text/csv');
+  toast('Thickness CSV exported.');
+}
+
+/* ---- selection and navigation of final boundaries ---- */
+function finalRows(secId) { return m3Result().rows.filter(r => r.sec === secId); }
+function markHit(sec, sx, sy) {
+  let best = null, bd = 10;
+  for (const r of finalRows(sec.id)) {
+    const q = toScreen(pathPointAtS(sec, r.s).pt), d = Math.hypot(q[0] - sx, q[1] - sy);
+    if (d < bd) { bd = d; best = r.g.id; }
+  }
+  return best;
+}
+function selectBoundary(secId, gid, center) {
+  m3.hsel = gid; m3.lsel = null; m3.vsel = null;
+  if (center && gid) { const r = finalRows(secId).find(x => x.g.id === gid); if (r) centerOnS(secById(secId), r.s); }
+  renderM3Sel(); requestDraw();
+}
+function stepBoundary(dir) {
+  if (!m3.chrono) return;
+  const all = m3Result().rows;
+  if (!all.length) return;
+  let i = all.findIndex(r => r.sec === state.secId && r.g.id === m3.hsel);
+  if (i < 0) { const rs = all.filter(r => r.sec === state.secId); i = rs.length ? all.indexOf(dir > 0 ? rs[0] : rs[rs.length - 1]) - dir : (dir > 0 ? -1 : all.length); }
+  const t = all[clamp(i + dir, 0, all.length - 1)];
+  if (t.sec !== state.secId) selectSection(t.sec);
+  selectBoundary(t.sec, t.g.id, true);
+}
+
+/* ---- drafts ---- */
+function cleanDraft(pts) {
+  const out = [];
+  for (const p of pts) { const q = out[out.length - 1]; if (!q || Math.hypot((p[0] - q[0]) * view.scale, (p[1] - q[1]) * view.scale) > 3) out.push(p); }
+  return out;
+}
+function m3Click(sec, sx, sy, p, shift) {
+  p = [round(p[0], 1), round(p[1], 1)];
+  if (!m3.chrono && m3.tool !== 'vcrack') { toast('Load the chronology first.', 'err'); return; }
+  if (m3.tool === 'horizon') {
+    if (!m3.draft) {
+      const g = markHit(sec, sx, sy);
+      if (g && !shift) { selectBoundary(sec.id, g, false); return; }
+      if (!m3.hsel || !finalRows(sec.id).some(r => r.g.id === m3.hsel)) { toast('Select a boundary first: click its mark on the path.', 'err'); return; }
+      m3.draft = []; m3.stage = $('hCrack').checked ? 'upper' : 'single';
+    }
+    m3.draft.push(p); renderM3Sel(); requestDraw(); return;
+  }
+  if (m3.tool === 'vcrack') {
+    if (!m3.draft) {
+      const h = hitVcrack(sec, sx, sy);
+      if (h) { m3.vsel = h; m3.lsel = null; renderM3Sel(); requestDraw(); return; }
+      m3.draft = []; m3.stage = 'upper';
+    }
+    m3.draft.push(p); renderM3Sel(); requestDraw(); return;
+  }
+  if (m3.tool === 'line') {
+    const ms = m3SecFull(sec.id);
+    if (m3.lineCrack) {
+      const ln = ms.lines.find(l => l.id === m3.lineCrack);
+      const a = [ln.x1, ln.y1], b = [ln.x2, ln.y2], q = distToPoly(p, [a, b]).q;
+      m3.draft = (m3.draft || []).concat([[round(q[0], 1), round(q[1], 1)]]);
+      if (m3.draft.length === 2) { pushUndo('final'); ln.crack = m3.draft; m3.draft = null; m3.lineCrack = null; touchM3(); renderFinal(); }
+      requestDraw(); return;
+    }
+    if (!m3.draft) {
+      const h = hitLine(sec, sx, sy);
+      if (h) { m3.lsel = h; m3.vsel = null; renderM3Sel(); requestDraw(); return; }
+      m3.draft = [p]; requestDraw(); return;
+    }
+    if (Math.hypot((p[0] - m3.draft[0][0]) * view.scale, (p[1] - m3.draft[0][1]) * view.scale) < 4) return;
+    ensureDoc(); pushUndo('final');
+    ms.next_line = (ms.next_line || 0) + 1;
+    const id = 'l' + String(ms.next_line).padStart(4, '0');
+    ms.lines.push({ id, x1: m3.draft[0][0], y1: m3.draft[0][1], x2: p[0], y2: p[1], crack: null });
+    m3.draft = null; m3.lsel = id;
+    touchM3(); renderFinal(); requestDraw();
+  }
+}
+function finishM3Draft() {
+  const sec = curSec();
+  if (!sec || !m3.draft) return;
+  const pts = cleanDraft(m3.draft);
+  if (m3.tool === 'horizon') {
+    const row = finalRows(sec.id).find(r => r.g.id === m3.hsel);
+    if (!row) { m3.draft = null; requestDraw(); return; }
+    const { O, a } = laminaAxis(sec, row.s);
+    const byT = arr => arr.slice().sort((x, y) => dot2(x, O, a) - dot2(y, O, a));
+    if (m3.stage === 'lower') {
+      if (pts.length < 2) { toast('Trace the lower edge with at least two points.', 'err'); return; }
+      saveHorizon(sec, row, { points: m3.upper, lower: byT(pts) });
+      return;
+    }
+    const all = byT([O.map(v => round(v, 1)), ...pts]);
+    if (all.length < 2) { toast('Click at least one point along the lamina beside the path.', 'err'); return; }
+    if (m3.stage === 'upper') { m3.upper = all; m3.draft = []; m3.stage = 'lower'; renderM3Sel(); requestDraw(); toast('Now trace the lower edge of the crack.'); return; }
+    saveHorizon(sec, row, { points: all });
+    return;
+  }
+  if (m3.tool === 'vcrack') {
+    if (pts.length < 2) { toast('Trace the edge with at least two points.', 'err'); return; }
+    if (m3.stage !== 'lower' || !m3.upper) { m3.upper = pts; m3.draft = []; m3.stage = 'lower'; renderM3Sel(); requestDraw(); toast('Now trace the lower edge.'); return; }
+    ensureDoc(); pushUndo('final');
+    const ms = m3SecFull(sec.id);
+    ms.next_vc = (ms.next_vc || 0) + 1;
+    const id = 'v' + String(ms.next_vc).padStart(3, '0');
+    ms.vcracks.push({ id, upper: m3.upper, lower: pts });
+    m3.draft = null; m3.upper = null; m3.stage = null; m3.vsel = id;
+    touchM3(); renderFinal(); requestDraw();
+  }
+}
+function saveHorizon(sec, row, h) {
+  ensureDoc(); pushUndo('final');
+  m3SecFull(sec.id).horizons[row.g.id] = h;
+  m3.draft = null; m3.upper = null; m3.stage = null;
+  touchM3(); renderFinal();
+  if ($('hAdv').checked) stepBoundary(1); else requestDraw();
+}
+function cancelM3Draft() { m3.draft = null; m3.upper = null; m3.stage = null; m3.lineCrack = null; m3.pending = null; renderM3Sel(); requestDraw(); }
+function deleteM3Selected() {
+  const sec = curSec();
+  if (!sec || !m3.doc) return;
+  if (m3.tool === 'pathcrack') { if (m3.sel) deleteCrack(sec.id, m3.sel); return; }
+  const ms = m3SecFull(sec.id);
+  if (m3.tool === 'horizon' && m3.hsel && ms.horizons[m3.hsel]) { pushUndo('final'); delete ms.horizons[m3.hsel]; }
+  else if (m3.tool === 'line' && m3.lsel) { pushUndo('final'); ms.lines = ms.lines.filter(l => l.id !== m3.lsel); m3.lsel = null; }
+  else if (m3.tool === 'vcrack' && m3.vsel) { pushUndo('final'); ms.vcracks = ms.vcracks.filter(c => c.id !== m3.vsel); m3.vsel = null; }
+  else return;
+  touchM3(); renderFinal(); requestDraw();
+}
+function hitLine(sec, sx, sy) {
+  const ms = m3Sec(sec.id, false);
+  let best = null, bd = 8;
+  for (const l of (ms && ms.lines) || []) {
+    const d = distToPoly([sx, sy], [toScreen([l.x1, l.y1]), toScreen([l.x2, l.y2])]).d;
+    if (d < bd) { bd = d; best = l.id; }
+  }
+  return best;
+}
+function hitVcrack(sec, sx, sy) {
+  const ms = m3Sec(sec.id, false);
+  let best = null, bd = 8;
+  for (const c of (ms && ms.vcracks) || []) {
+    for (const e of [c.upper, c.lower]) { const d = distToPoly([sx, sy], e.map(toScreen)).d; if (d < bd) { bd = d; best = c.id; } }
+  }
+  return best;
+}
+function hitHorizon(sec, sx, sy) {
+  const ms = m3Sec(sec.id, false);
+  let best = null, bd = 8;
+  for (const [gid, h] of Object.entries((ms && ms.horizons) || {})) {
+    for (const e of [h.points, h.lower].filter(Boolean)) { const d = distToPoly([sx, sy], e.map(toScreen)).d; if (d < bd) { bd = d; best = gid; } }
+  }
+  return best;
+}
+
+/* ---- drawing step 2 ---- */
+function drawThickness(sec) {
+  const ms = m3Sec(sec.id, false), u = R.u;
+  if (R.layers.marks && ms) {
+    for (const c of ms.vcracks || []) {
+      ctx.beginPath();
+      [...c.upper, ...c.lower.slice().reverse()].forEach((p, i) => { const q = toScreen(p); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+      ctx.closePath(); ctx.fillStyle = CRACK_FILL; ctx.fill();
+      const sel = !R.exp && m3.vsel === c.id;
+      strokePoly(c.upper, sel ? '#fff' : CRACK_LINE, sel ? 2.2 : 1.4); strokePoly(c.lower, sel ? '#fff' : CRACK_LINE, sel ? 2.2 : 1.4);
+    }
+    for (const [gid, h] of Object.entries(ms.horizons || {})) {
+      const sel = !R.exp && m3.hsel === gid;
+      strokePoly(h.points, sel ? '#39ff88' : HOR_COLOR, sel ? 2 : 1.3);
+      if (h.lower) strokePoly(h.lower, sel ? '#39ff88' : CRACK_LINE, sel ? 2 : 1.3);
+    }
+    const T = m3Thick().bySec[sec.id];
+    if (T) for (const v of T.varves) for (const p of v.positions) { strokePoly([p.B, p.T], MEAS_COLOR, 1.2); dot(p.B, 2.2, MEAS_COLOR); }
+    for (const l of ms.lines || []) {
+      const sel = !R.exp && m3.lsel === l.id;
+      strokePoly([[l.x1, l.y1], [l.x2, l.y2]], sel ? '#fff' : LINE_COLOR, sel ? 2.2 : 1.5);
+      dot([l.x1, l.y1], 2.5, LINE_COLOR);
+      if (l.crack) strokePoly(l.crack, CRACK_LINE, 3.5);
+    }
+  }
+  if (R.exp) return;
+  if (m3.tool === 'horizon' && m3.hsel) {
+    const r = finalRows(sec.id).find(x => x.g.id === m3.hsel);
+    if (r) { const q = toScreen(pathPointAtS(sec, r.s).pt); ctx.beginPath(); ctx.arc(q[0], q[1], 11 * u, 0, Math.PI * 2); ctx.lineWidth = 2.5 * u; ctx.strokeStyle = '#39ff88'; ctx.stroke(); }
+  }
+  if (m3.draft && (m3.draft.length || m3.upper)) {
+    let pts = m3.draft.slice();
+    if (m3.tool === 'horizon' && m3.stage !== 'lower') {
+      const r = finalRows(sec.id).find(x => x.g.id === m3.hsel);
+      if (r) { const { O, a } = laminaAxis(sec, r.s); pts = [O, ...pts].sort((x, y) => dot2(x, O, a) - dot2(y, O, a)); }
+    }
+    if (m3.upper) strokePoly(m3.upper, '#39ff88', 1.5);
+    if (state.cursor && m3.tool === 'line' && !m3.lineCrack && pts.length === 1) pts.push(state.cursor);
+    strokePoly(pts, m3.stage === 'lower' || m3.tool === 'vcrack' || m3.lineCrack ? CRACK_LINE : '#39ff88', 1.5, [6, 4]);
+    pts.forEach(p => dot(p, 3.5, '#39ff88'));
+  }
+}
+
+/* ---- panel step 2 ---- */
+function setM3Tool(t) {
+  cancelM3Draft();
+  m3.tool = t;
+  document.querySelectorAll('[data-m3tool]').forEach(b => b.classList.toggle('on', b.dataset.m3tool === t));
+  $('m3ToolHint').textContent = M3_TOOL_HINT[t];
+  $('step1Box').hidden = t !== 'pathcrack';
+  $('step2Box').hidden = t === 'pathcrack';
+  $('hOpts').hidden = t !== 'horizon';
+  if (t === 'horizon' && !m3.hsel) { const rs = finalRows(state.secId); if (rs.length) m3.hsel = rs[0].g.id; }
+  renderFinal(); requestDraw();
+}
+function renderM3Sel() {
+  const el = $('m3Sel'), sec = curSec();
+  if (!sec) { el.innerHTML = ''; return; }
+  const k = mmPerPx(sec), mm = v => (v == null ? '—' : k ? fmt(v * k, 3) + ' mm' : fmt(v, 1) + ' px');
+  const T = m3Thick().bySec[sec.id] || { varves: [], unassigned: [] };
+  let html = '';
+  if (m3.stage === 'lower') html += '<div class="msg warn">Now trace the lower edge (Enter finishes, Esc cancels).</div>';
+  else if (m3.draft) html += '<div class="msg warn">Tracing… Enter, double-click or right-click finishes; Esc cancels.</div>';
+  if (m3.lineCrack) html += '<div class="msg warn">Click the two ends of the crack on the selected line.</div>';
+  if (m3.tool === 'horizon' && m3.hsel) {
+    const i = T.varves.findIndex(v => v.row.g.id === m3.hsel);
+    if (i >= 0) {
+      const ms = m3Sec(sec.id, false), h = ms && ms.horizons && ms.horizons[m3.hsel];
+      const desc = v => !v ? '' : v.status === 'ok'
+        ? `${v.positions.map(p => mm(p.net)).join(' · ')}<br>mean (area) ${mm(v.area)}`
+        : v.status === 'spans' ? 'top boundary in the previous section — not measurable with horizons'
+        : v.status === 'no overlap' ? 'the two horizons do not overlap sideways' : 'needs the horizons of both its boundaries';
+      const above = T.varves[i], below = T.varves[i + 1];
+      html += `<div class="msg" style="background:#f3f5f7"><b>Boundary at the base of varve ${above.row.varve}</b> · ${h ? (h.lower ? 'horizon with crack edges' : 'horizon traced') : 'no horizon yet'}` +
+        `<br><b>Varve ${above.row.varve}:</b> ${desc(above)}` + (below ? `<br><b>Varve ${below.row.varve}:</b> ${desc(below)}` : '') + '</div>';
+    }
+  }
+  if (m3.tool === 'line' && m3.lsel) {
+    const v = T.varves.find(x => x.lines.some(m => m.ln.id === m3.lsel)), m = (v ? v.lines : T.unassigned).find(x => x.ln.id === m3.lsel);
+    if (m) html += `<div class="msg" style="background:#f3f5f7">Line ${esc(m.ln.id)} · ${v ? 'varve ' + v.row.varve : 'not inside a varve of this section'}<br>${mm(m.raw)}${m.crack ? ' − crack ' + mm(m.crack) + ' = ' + mm(m.net) : ''}</div>`;
+  }
+  if (m3.tool === 'vcrack' && m3.vsel) html += `<div class="msg" style="background:#f3f5f7">Crack ${esc(m3.vsel)} inside a varve</div>`;
+  el.innerHTML = html;
+  $('m3LineCrack').hidden = m3.tool !== 'line';
+  $('m3LineCrack').disabled = !m3.lsel;
+  $('m3Nav').hidden = m3.tool !== 'horizon';
+  const measured = T.varves.filter(v => v.status === 'ok').length, lines = T.varves.reduce((a, v) => a + v.lines.length, 0);
+  $('m3Stats').innerHTML = [['Measured (horizons)', `${measured} of ${T.varves.length} varves`], ['Quick lines', String(lines) + (T.unassigned.length ? ` (+${T.unassigned.length} outside varves)` : '')]]
+    .map(([t, v]) => `<dt>${t}</dt><dd>${esc(v)}</dd>`).join('');
+}
+
+/* ---------------------------------------------------------------------
+   Image export (DESIGN.md §11): the section with whatever is marked now
+   --------------------------------------------------------------------- */
+const EXPORT_DEFAULTS = { view: false, path: true, marks: true, nums: true, labels: true, filter: true, bar: false, barMm: 1, caption: false, size: 1 };
+const exportOpts = { ...EXPORT_DEFAULTS };
+try { Object.assign(exportOpts, JSON.parse(store.get('varves:export') || '{}')); } catch { /* ignore */ }
+let exportResult = null;
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(u8) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+/* Write the resolution into a PNG (pHYs chunk), so the export keeps its scale. */
+async function pngWithDpi(blob, dpi) {
+  if (!(dpi > 0)) return blob;
+  const src = new Uint8Array(await blob.arrayBuffer());
+  const dv = new DataView(src.buffer);
+  const ppm = Math.round(dpi / 0.0254);
+  const chunk = new Uint8Array(21), cv2 = new DataView(chunk.buffer);
+  cv2.setUint32(0, 9); chunk.set([0x70, 0x48, 0x59, 0x73], 4);
+  cv2.setUint32(8, ppm); cv2.setUint32(12, ppm); chunk[16] = 1;
+  cv2.setUint32(17, crc32(chunk.subarray(4, 17)));
+  let o = 8, ihdrEnd = 33;
+  while (o + 12 <= src.length) {
+    const len = dv.getUint32(o), type = String.fromCharCode(src[o + 4], src[o + 5], src[o + 6], src[o + 7]);
+    if (type === 'IHDR') ihdrEnd = o + 12 + len;
+    if (type === 'pHYs') return new Blob([src.subarray(0, o), chunk, src.subarray(o + 12 + len)], { type: 'image/png' });
+    if (type === 'IDAT') break;
+    o += 12 + len;
+  }
+  return new Blob([src.subarray(0, ihdrEnd), chunk, src.subarray(ihdrEnd)], { type: 'image/png' });
+}
+
+async function saveBlob(blob, name) {
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'PNG image', accept: { 'image/png': ['.png'] } }] });
+      const w = await h.createWritable(); await w.write(blob); await w.close();
+      return 'saved';
+    } catch (e) {
+      if (e.name === 'AbortError') return null;
+      throw e;
+    }
+  }
+  download(blob, name, 'image/png');
+  return 'downloaded';
+}
+
+const exportModule = () => (state.tab === 'count' ? 'count' : state.tab === 'decide' ? 'decide' : state.tab === 'final' ? 'final' : 'setup');
+const safeName = s => String(s).replace(/[\\/:*?"<>|\s]+/g, '_');
+function stamp(d, sep) {
+  const z = v => String(v).padStart(2, '0');
+  return `${d.getFullYear()}${sep ? '-' : ''}${z(d.getMonth() + 1)}${sep ? '-' : ''}${z(d.getDate())}${sep ? ' ' : '-'}${z(d.getHours())}${sep ? ':' : ''}${z(d.getMinutes())}`;
+}
+
+/* Render the export into a new canvas. Full resolution: image pixels 1:1,
+   marks sized in mm on the section (o.size = 1 → labels about 0.35 mm high).
+   Current view: what is on screen, at device resolution. */
+function renderExport(o) {
+  const sec = curSec(), img = curImg();
+  const dpr = window.devicePixelRatio || 1;
+  const mod = exportModule(), counting = mod === 'count', deciding = mod === 'decide', finals = mod === 'final', marked = counting || deciding || finals;
+  let w, h, imgM, ovM, ovU, U, dpiOut, smooth;
+  if (!o.view) {
+    w = img.width; h = img.height;
+    imgM = new DOMMatrix(); ovM = new DOMMatrix();
+    const ref = sec.dpi > 0 ? sec.dpi : 2400;
+    U = ovU = o.size * (0.35 / MM_PER_IN * ref) / 12;
+    dpiOut = sec.dpi > 0 ? sec.dpi : null;
+    smooth = false;
+  } else {
+    w = Math.round(W() * dpr); h = Math.round(H() * dpr);
+    imgM = new DOMMatrix().scale(dpr).multiply(Mc); ovM = Mc;
+    ovU = o.size; U = o.size * dpr;
+    dpiOut = sec.dpi > 0 ? sec.dpi * view.scale * dpr : null;
+    smooth = view.scale * dpr < 2;
+  }
+  const lineH = 12 * U * 1.6;
+  const capH = o.caption ? Math.round(lineH * 2 + 10 * U) : 0;
+  if (w > 32767 || h + capH > 32767 || w * (h + capH) > 2.5e8) throw new Error('The image is too large to export at full resolution. Use “Current view only”.');
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h + capH;
+  const saved = { ctx, R, Mc };
+  ctx = c.getContext('2d');
+  try {
+    ctx.fillStyle = '#2b2f33'; ctx.fillRect(0, 0, w, h);
+    drawImageLayer(img, imgM, smooth, o.filter);
+    if (o.view) ctx.setTransform(dpr, 0, 0, dpr, 0, 0); else ctx.setTransform(1, 0, 0, 1, 0, 0);
+    Mc = ovM;
+    R = { u: ovU, w: o.view ? W() : w, h: o.view ? H() : h, exp: true,
+          layers: { path: o.path, marks: marked && o.marks, nums: marked && o.nums, labels: o.labels } };
+    drawOverlay(sec);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    R = { ...R, u: U };
+    if (o.bar && dpiOut && o.barMm > 0) {
+      const len = o.barMm * dpiOut / MM_PER_IN, pad = 18 * U, y = h - pad, bh = 5 * U;
+      ctx.fillStyle = '#000'; ctx.fillRect(pad - 1.5 * U, y - bh - 1.5 * U, len + 3 * U, bh + 3 * U);
+      ctx.fillStyle = '#fff'; ctx.fillRect(pad, y - bh, len, bh);
+      label(`${o.barMm} mm`, pad + len / 2, y - bh - 11 * U, '#fff', 'center');
+    }
+    if (o.caption) {
+      const a = sec.anchors;
+      const n = counting && state.counts ? (countsSec(sec.id, false)?.boundaries.length || 0) : null;
+      const ds = deciding && m2.chrono ? m2Result().perSec[sec.id] : null;
+      const fs = finals ? m3Result().perSec[sec.id] : null;
+      const who = counting ? (state.counts?.person || state.person) : deciding || finals ? state.person : sec.drawn_by;
+      const l1 = [state.project.project, `section ${sec.id}`, counting ? 'Module 1 · counting' : deciding ? 'Module 2 · Method C' : finals ? 'Module 3 · final depths' : 'Setup · path',
+        who ? (counting ? 'counter ' : deciding ? 'reviewed by ' : finals ? 'by ' : 'path by ') + who : null, stamp(new Date(), true)];
+      const l2 = [anchored(sec) ? `depth ${fmt(a.top_mm / 10, 2)}–${fmt(a.bottom_mm / 10, 2)} cm` : 'no depth anchors',
+        n != null ? `${n} boundaries` : null,
+        ds ? `${ds.varves} varves here (+${ds.up} / −${ds.un}) · counters ${m2.counters.join(', ')}` : null,
+        fs ? `${fs.varves} varves here (+${fs.up} / −${fs.un}) · ${fs.cracks} crack${fs.cracks === 1 ? '' : 's'}${fs.done ? '' : ' (cracks not complete)'}` : null, sec.dpi ? `${sec.dpi} dpi scan` : 'no DPI', o.view ? 'current view' : 'whole section'];
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, h, w, capH);
+      ctx.fillStyle = '#1d2327'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      ctx.font = `600 ${12 * U}px system-ui, sans-serif`;
+      ctx.fillText(l1.filter(Boolean).join('  ·  '), 10 * U, h + 5 * U + lineH / 2);
+      ctx.font = `${12 * U}px system-ui, sans-serif`;
+      ctx.fillText(l2.filter(Boolean).join('  ·  '), 10 * U, h + 5 * U + lineH * 1.5);
+    }
+  } finally {
+    ctx = saved.ctx; R = saved.R; Mc = saved.Mc; Mi = Mc.inverse();
+  }
+  const person = counting ? (state.counts?.person || state.person) : null;
+  const name = safeName([state.project.project, sec.id, mod, person, o.view ? 'view' : null, stamp(new Date(), false)].filter(Boolean).join('.')) + '.png';
+  return { canvas: c, dpi: dpiOut, name };
+}
+
+function readExportOpts() {
+  Object.assign(exportOpts, {
+    view: $('exView').checked, path: $('exPath').checked, marks: $('exMarks').checked, nums: $('exNums').checked,
+    labels: $('exLabels').checked, filter: $('exFilter').checked, bar: $('exBar').checked,
+    barMm: parseFloat($('exBarMm').value) || 1, caption: $('exCap').checked, size: parseFloat($('exSize').value) || 1,
+  });
+  store.set('varves:export', JSON.stringify(exportOpts));
+}
+function openExport() {
+  const sec = curSec();
+  if (!sec || !curImg()) { toast('Load a section image first.', 'err'); return; }
+  const o = exportOpts;
+  $('exView').checked = o.view; $('exPath').checked = o.path; $('exMarks').checked = o.marks; $('exNums').checked = o.nums;
+  $('exLabels').checked = o.labels; $('exFilter').checked = o.filter; $('exBar').checked = o.bar; $('exBarMm').value = o.barMm;
+  $('exCap').checked = o.caption; $('exSize').value = o.size;
+  const mod = exportModule(), counting = mod === 'count';
+  $('exMarks').disabled = $('exNums').disabled = mod === 'setup';
+  $('exWhat').textContent = counting
+    ? `Section ${sec.id} with ${state.counts ? 'your boundaries (' + state.counts.person + ') as marked now, including unsaved changes' : 'no counts open'}. Other counters' marks are never included.`
+    : mod === 'final'
+    ? `Section ${sec.id} with the cracks on the path and the final varves (numbers are varve numbers).`
+    : mod === 'decide'
+    ? `Section ${sec.id} with all counters' boundaries (${m2.counters.join(', ') || 'none loaded'}), the matching and the decisions as they are now. Numbers are varve numbers.`
+    : `Section ${sec.id} with its path. Boundaries are exported from the “1 Count” or “2 Decide” tab.`;
+  $('exportDlg').hidden = false;
+  updateExportPreview();
+}
+function closeExport() { $('exportDlg').hidden = true; exportResult = null; }
+let exportTimer;
+function updateExportPreview() {
+  clearTimeout(exportTimer);
+  exportTimer = setTimeout(() => {
+    readExportOpts();
+    $('exSizeV').textContent = exportOpts.size + '×';
+    const pv = $('exPv'), box = $('pvBox');
+    try {
+      exportResult = renderExport(exportOpts);
+    } catch (err) {
+      exportResult = null;
+      $('exInfo').textContent = err.message;
+      pv.width = pv.height = 0;
+      return;
+    }
+    const c = exportResult.canvas, dpr = window.devicePixelRatio || 1;
+    const k = Math.min((box.clientWidth - 16) / c.width, Math.max(260, window.innerHeight * 0.62) / c.height, 1);
+    pv.style.width = Math.round(c.width * k) + 'px'; pv.style.height = Math.round(c.height * k) + 'px';
+    pv.width = Math.round(c.width * k * dpr); pv.height = Math.round(c.height * k * dpr);
+    const x = pv.getContext('2d');
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(c, 0, 0, pv.width, pv.height);
+    const sec = curSec();
+    $('exInfo').textContent = `${c.width} × ${c.height} px · ${exportResult.dpi ? round(exportResult.dpi, 1) + ' dpi' : 'no DPI'} · PNG` +
+      (exportOpts.bar && !exportResult.dpi ? ' · scale bar needs the DPI' : '') +
+      (!exportOpts.view && !(sec.dpi > 0) ? ' · mark size assumes 2400 dpi' : '') + `\n${exportResult.name}`;
+  }, 40);
+}
+async function saveExport() {
+  if (!exportResult) return;
+  const { canvas, dpi, name } = exportResult;
+  try {
+    busy('Writing PNG…');
+    const blob = await new Promise((res, rej) => canvas.toBlob(b => (b ? res(b) : rej(new Error('PNG encoding failed'))), 'image/png'));
+    const how = await saveBlob(await pngWithDpi(blob, dpi), name);
+    if (!how) return;
+    closeExport();
+    toast(how === 'saved' ? 'Image saved.' : `Image downloaded as ${name}.`);
+  } catch (err) {
+    toast('Export failed: ' + err.message, 'err');
+  } finally {
+    busy(null);
+  }
+}
 
 /* ---------------------------------------------------------------------
    Project actions
@@ -1525,6 +3361,8 @@ function setProject(obj, handle, fileName) {
   state.secId = obj.sections[0] ? obj.sections[0].id : null;
   state.selB = null; state.selV = null; state.draft = null; state.scalePts = null;
   clearUndo();
+  m2Reset();
+  m3Reset();
   const remembered = store.get(`varves:person:${obj.project}`);
   state.person = obj.people.some(p => p.id === remembered) ? remembered : null;
 }
@@ -1642,7 +3480,14 @@ function renameSection(sec, newId) {
   if (state.images.has(old)) { state.images.set(newId, state.images.get(old)); state.images.delete(old); }
   if (state.views.has(old)) { state.views.set(newId, state.views.get(old)); state.views.delete(old); }
   if (state.counts && state.counts.sections[old]) { state.counts.sections[newId] = state.counts.sections[old]; delete state.counts.sections[old]; touchCounts(); }
-  for (const d of ['setup', 'counts']) for (const s of [...undo[d], ...redo[d]]) if (s.secId === old) s.secId = newId;
+  for (const p of m2.counters) { const c = m2.counts[p].sections; if (c[old]) { c[newId] = c[old]; delete c[old]; } }
+  if (m2.chrono && m2.chrono.sections[old]) { m2.chrono.sections[newId] = m2.chrono.sections[old]; delete m2.chrono.sections[old]; touchChrono(); }
+  if (m2.sel && m2.sel.secId === old) m2.sel.secId = newId;
+  if (m3.doc && m3.doc.sections[old]) { m3.doc.sections[newId] = m3.doc.sections[old]; delete m3.doc.sections[old]; touchM3(); }
+  if (m3.chrono && m3.chrono.sections[old]) { m3.chrono.sections[newId] = m3.chrono.sections[old]; delete m3.chrono.sections[old]; }
+  m3._res = null;
+  m2Invalidate();
+  for (const d of ['setup', 'counts', 'decide', 'final']) for (const s of [...undo[d], ...redo[d]]) if (s.secId === old) s.secId = newId;
   if (state.secId === old) state.secId = newId;
   touchProject(sec);
   return true;
@@ -1653,6 +3498,8 @@ function selectSection(id) {
   state.secId = id;
   state.selB = null; state.selV = null; state.draft = null; state.scalePts = null;
   state.activeSeg = 0;
+  m3.pending = null; m3.sel = null; m3.draft = null; m3.upper = null; m3.stage = null; m3.lineCrack = null; m3.lsel = null; m3.vsel = null;
+  if (m3.hsel && !(m3.chrono && m3.chrono.sections[id] && m3.chrono.sections[id].groups.some(g => g.id === m3.hsel))) m3.hsel = null;
   const sec = curSec();
   if (sec && state.counts) syncCountsSection(sec);
   const v = state.views.get(id);
@@ -1775,7 +3622,7 @@ function exportCountsCSV() {
    Rendering panels
    --------------------------------------------------------------------- */
 function refreshTitle() {
-  const dirty = state.projectDirty || state.countsDirty;
+  const dirty = state.projectDirty || state.countsDirty || m2.dirty || m3.dirty;
   document.title = (dirty ? '• ' : '') + 'Varve counter' + (state.project ? ' — ' + state.project.project : '');
 }
 
@@ -1831,7 +3678,7 @@ function renderProject() {
 
 function renderSectionSelects() {
   const opts = state.project ? state.project.sections.map(s => `<option value="${esc(s.id)}">${esc(s.id)}</option>`).join('') : '';
-  for (const id of ['secSelSetup', 'secSelCount']) {
+  for (const id of ['secSelSetup', 'secSelCount', 'secSelDecide', 'secSelFinal']) {
     const el = $(id);
     el.innerHTML = opts || '<option value="">—</option>';
     el.value = state.secId || '';
@@ -1927,7 +3774,7 @@ function renderCountStats() {
 }
 
 function refreshPanels() {
-  renderPersonSel(); renderProject(); renderSectionSelects(); renderSetup(); renderCount();
+  renderPersonSel(); renderProject(); renderSectionSelects(); renderSetup(); renderCount(); renderDecide(); renderFinal();
 }
 function refreshAll() {
   refreshPanels(); refreshTitle(); setCursor(); requestDraw();
@@ -1938,7 +3785,8 @@ function setTab(tab) {
   if (state.tool === 'scale') { state.tool = 'edit'; state.scalePts = null; }
   state.tab = tab;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  for (const t of ['project', 'setup', 'count']) $('tab-' + t).hidden = t !== tab;
+  for (const t of ['project', 'setup', 'count', 'decide', 'final']) $('tab-' + t).hidden = t !== tab;
+  m3.pending = null; m3.draft = null; m3.upper = null; m3.stage = null; m3.lineCrack = null;
   const sec = curSec();
   if (tab === 'count' && sec && state.counts) syncCountsSection(sec);
   refreshAll();
@@ -2015,7 +3863,7 @@ $('secList').addEventListener('click', e => {
   else if (t.dn) moveSection(+t.dn, 1);
   else if (t.rm) removeSection(+t.rm);
 });
-for (const id of ['secSelSetup', 'secSelCount']) $(id).addEventListener('change', e => { if (e.target.value) selectSection(e.target.value); });
+for (const id of ['secSelSetup', 'secSelCount', 'secSelDecide', 'secSelFinal']) $(id).addEventListener('change', e => { if (e.target.value) selectSection(e.target.value); });
 
 $('secIdIn').addEventListener('change', e => {
   const sec = curSec();
@@ -2064,6 +3912,49 @@ $('scaleApply').addEventListener('click', () => {
   toast(`DPI set to ${sec.dpi} from the scale bar.`);
 });
 
+$('fOpenChrono').addEventListener('click', openChronoM3);
+$('fTake').addEventListener('click', takeChronoFromM2);
+$('fOpen').addEventListener('click', openThick);
+$('fSave').addEventListener('click', saveThick);
+$('fVarvesCsv').addEventListener('click', exportVarvesCSV);
+$('fCracksCsv').addEventListener('click', exportCracksCSV);
+document.querySelectorAll('[data-m3tool]').forEach(b => b.addEventListener('click', () => setM3Tool(b.dataset.m3tool)));
+$('m3Prev').addEventListener('click', () => stepBoundary(-1));
+$('m3Next').addEventListener('click', () => stepBoundary(1));
+$('m3Del').addEventListener('click', deleteM3Selected);
+$('m3LineCrack').addEventListener('click', () => { if (m3.lsel) { m3.lineCrack = m3.lsel; m3.draft = []; renderM3Sel(); } });
+$('fThickCsv').addEventListener('click', exportThicknessCSV);
+$('m3Pos').addEventListener('change', e => {
+  const v = parseInt(e.target.value, 10);
+  if (!(v >= 1 && v <= 10)) { e.target.value = m3Settings().positions; return; }
+  ensureDoc(); m3.doc.settings = { ...(m3.doc.settings || {}), positions: v }; touchM3(); renderFinal(); requestDraw();
+});
+$('fDel').addEventListener('click', () => { const sec = curSec(); if (sec && m3.sel) deleteCrack(sec.id, m3.sel); });
+$('fDone').addEventListener('change', e => {
+  const sec = curSec();
+  if (!sec) return;
+  ensureDoc();
+  pushUndo('final');
+  m3Sec(sec.id, true).cracks_done = e.target.checked;
+  touchM3(); renderFinal();
+});
+$('dFiles').addEventListener('change', e => { const f = [...e.target.files]; e.target.value = ''; loadCountsFiles(f); });
+$('dMatch').addEventListener('click', runMatching);
+$('dOpen').addEventListener('click', openChrono);
+$('dSave').addEventListener('click', saveChrono);
+$('dCsv').addEventListener('click', exportChronoCSV);
+$('dPrev').addEventListener('click', () => reviewStep(-1));
+$('dNext').addEventListener('click', () => reviewStep(1));
+$('dDetach').addEventListener('click', detachSelected);
+$('dCheck').addEventListener('click', toggleChecked);
+$('dOnlyOpen').addEventListener('change', () => renderDecide());
+for (const id of ['dTol', 'dWin']) $(id).addEventListener('change', () => {
+  if (m2.chrono) toast('Settings change the matching only when it is re-run.');
+  else {
+    const t = parseFloat($('dTol').value), w = parseInt($('dWin').value, 10);
+    if (t > 0 && t <= 1 && w >= 2) { state.project.settings.method_c = { tolerance_fraction: t, window: w }; touchProject(); m2Invalidate(); }
+  }
+});
 $('cNew').addEventListener('click', newCounts);
 $('cOpen').addEventListener('click', openCounts);
 $('cSave').addEventListener('click', saveCounts);
@@ -2071,6 +3962,11 @@ $('cCsv').addEventListener('click', exportCountsCSV);
 $('showNums').addEventListener('change', e => { state.showNums = e.target.checked; requestDraw(); });
 
 $('zFit').addEventListener('click', fitView);
+$('zExport').addEventListener('click', openExport);
+$('exCancel').addEventListener('click', closeExport);
+$('exSave').addEventListener('click', saveExport);
+$('exportDlg').addEventListener('click', e => { if (e.target.id === 'exportDlg') closeExport(); });
+$('exportDlg').addEventListener('input', e => { if (e.target.matches('input')) updateExportPreview(); });
 $('zIn').addEventListener('click', () => zoomAt(W() / 2, H() / 2, 1.25));
 $('zOut').addEventListener('click', () => zoomAt(W() / 2, H() / 2, 0.8));
 $('zRot').addEventListener('click', rotateView);
@@ -2079,9 +3975,10 @@ $('fC').addEventListener('input', e => { state.filter.c = +e.target.value; reque
 $('fReset').addEventListener('click', () => { state.filter = { b: 100, c: 100 }; $('fB').value = 100; $('fC').value = 100; requestDraw(); });
 
 window.addEventListener('beforeunload', e => {
-  if (state.projectDirty || state.countsDirty) { e.preventDefault(); e.returnValue = ''; }
+  if (state.projectDirty || state.countsDirty || m2.dirty || m3.dirty) { e.preventDefault(); e.returnValue = ''; }
 });
 
+$('m3ToolHint').textContent = M3_TOOL_HINT.pathcrack;
 refreshAll();
 </script>
 </body>

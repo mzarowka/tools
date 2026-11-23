@@ -1,6 +1,6 @@
 # Varve counter — design
 
-Status: **version 1 implemented** (project setup + Module 1) in [`index.html`](index.html). Modules 2 and 3 are designed but not built yet.
+Status: **version 4 implemented** — all modules (project setup, Module 1, Module 2, Module 3 steps 1–2) and image export — in [`index.html`](index.html).
 
 A browser tool for counting varves on scanned thin sections, building a varve
 chronology with uncertainty (Method C of Żarczyński, Tylmann & Goslar 2018,
@@ -214,7 +214,43 @@ boundary. This is done in two steps.
   reproduced and re-checked. Re-running the automatic step never overwrites
   them silently.
 
-### 6.3 Output
+### 6.3 Implementation notes (version 2)
+
+- **Input:** the counts files of all counters, loaded together. Module 2 shows
+  everyone's marks, so it is meant for after counting is finished.
+- **Counters per section:** `N` is the number of counters with boundaries in
+  that section, and `k = floor(N/2) + 1` is taken from it. The panel warns when
+  someone did not count a section.
+- **Local thickness:** for each counter, the median spacing of a window of
+  `window` consecutive spacings around the boundary. The tolerance of a match is
+  `tolerance_fraction × (T_group + T_boundary) / 2`. Without spacings (a single
+  boundary), the median spacing of the section is used.
+- **Alignment:** counters are added one at a time (in the project's people
+  order). Each step is a dynamic-programming alignment of the counter's sorted
+  boundaries to the current groups: a match costs `distance / tolerance`
+  (only within tolerance), leaving either side unmatched costs 0.5. So a match
+  is always preferred to two unmatched boundaries, and the order is preserved.
+- **Flags:** a group is flagged for review when not all counters agree, when its
+  spread exceeds 80 % of its tolerance, or when it is new (see below). The
+  reviewer marks groups as checked; Prev / Next steps through flagged groups
+  across sections.
+- **Edits:** *detach* takes one boundary out of its group; *merge*
+  (Shift+click) joins two groups. A merge is refused when both groups hold a
+  boundary of the same counter, or when the result would cross another
+  boundary of the same counter. Edited groups are marked `manual` and every
+  edit is logged (`edits`: op, time, person, ids).
+- **Re-run:** the automatic matching can be re-run (e.g. with another
+  tolerance). The reviewer chooses whether manually edited groups are kept.
+- **Changed counts:** when a chronology is opened with counts that changed
+  since the matching, matched boundaries that no longer exist are removed from
+  their groups and new boundaries are added as single groups flagged “new”.
+  The chronology must be opened with the counts of every counter it was built
+  from.
+- **Varve depths:** an accepted boundary closes the varve above it (3.4), so a
+  varve spans from the previous accepted boundary (or the top of the record)
+  to this one, across section joints.
+
+### 6.4 Output
 
 - The accepted boundaries define the **final varves**.
 - For each varve: number, section, top and bottom core depth, `n_agree`,
@@ -236,6 +272,22 @@ is the slow, detailed work and can be done later, or only for some intervals.
 3. Result: the **final varve-depth table**. One row per accepted varve:
    varve number (counted from the top of the record), top and bottom core
    depth, and the cumulative +/− uncertainty from Module 2.
+
+Implementation notes (version 3):
+
+- Module 3 reads the **chronology file** only (no counts needed). When saved,
+  the chronology stores for every group its position on the path (`s_px`) and
+  the number of counters who marked it (`n`), and for every section the number
+  of counters (`n_counters`). In the same session the chronology can also be
+  taken directly from “2 Decide”.
+- The decision is re-derived from `n` and `n_counters` with the same majority
+  rule, so the varve numbers and uncertainties are identical to Module 2.
+- A crack is stored as its two clicked edge points; their positions on the
+  path are recomputed from the current path. Overlapping cracks are refused.
+- Each section has a flag **“all cracks on the path are marked”**. It is
+  exported as `crack_corrected`, so a section without cracks is distinguishable
+  from a section that was not checked.
+- If the path of a section changed after the matching, a warning is shown.
 
 The tool works with **varve numbers only**. It does not convert them to
 calendar ages, so floating chronologies need no special handling. Anchoring
@@ -296,7 +348,34 @@ The edges are traced sideways, as two short horizons.
   already counted keep their depth order; only their depth values shift
   slightly.
 
-### 7.5 Units
+### 7.5 Implementation notes (version 4)
+
+- **Tracing a horizon:** select a final boundary (click its mark, or ◂ ▸ /
+  `[` `]`), click points along the lamina on either side of the path, finish
+  with Enter, double-click or right-click. The boundary's mark on the path is
+  added automatically, and the points are ordered across the path. The tool
+  then moves to the next boundary (optional).
+- **Measuring axis:** for a varve, the axis along the laminae is the path
+  normal at the middle of the varve. The part where both horizons exist along
+  this axis is the shared width; the positions (default 3, a setting) are at
+  its 1/6, 3/6, 5/6.
+- **Thickness at a position:** shortest distance from the base horizon to the
+  top horizon. **Area mean:** the distance between the two horizons measured
+  along the path, averaged over 64 positions across the shared width (= area /
+  width).
+- **Crack along a boundary:** tick “Crack along this boundary” and trace the
+  upper edge, then the lower edge, for that boundary.
+- **Crack inside a varve:** traced as an upper and a lower edge; it belongs to
+  the varve its centre falls in. At each position its width (shortest
+  distance between its edges) is subtracted; for the area mean its height
+  along the path is subtracted.
+- **First varve of a section:** its top boundary lies in the previous section
+  (another image), so it cannot be measured with horizons; quick lines work.
+- **Quick lines** are assigned to the varve that contains their midpoint. A
+  crack on a line is two clicks projected onto the line.
+- `thickness_corr_mm` uses the stretch factor without the path cracks (3.5).
+
+### 7.6 Units
 
 Each measurement is reported in two ways:
 
@@ -376,10 +455,10 @@ small, and keeps counters independent.
 | Export | One row per | Columns |
 |---|---|---|
 | `counts.csv` | click | `project, section, person, seq, boundary_id, segment, s_mm, core_depth_mm, x_px, y_px` |
-| `chronology.csv` | matched group | `project, section, group_id, varve_no, included, n_agree, n_counters, persons, core_depth_mm, top_mm, bottom_mm, unc_pos_cum, unc_neg_cum` |
-| `varves.csv` | accepted varve (final) | `project, section, varve_no, top_depth_mm, bottom_depth_mm, unc_pos_cum, unc_neg_cum, crack_corrected` |
+| `chronology.csv` | matched group | `project, section, group_id, varve_no, included, status, n_agree, n_counters, persons, s_mm, core_depth_mm, top_mm, bottom_mm, unc_pos_cum, unc_neg_cum, checked, manual` |
+| `varves.csv` | accepted varve (final) | `project, section, varve_no, status, top_depth_mm, bottom_depth_mm, bottom_depth_uncorrected_mm, unc_pos_cum, unc_neg_cum, crack_corrected` |
 | `cracks.csv` | crack | `project, section, crack_id, crosses_path, s_upper_mm, s_lower_mm, width_mm, core_depth_mm` |
-| `thickness.csv` | measurement | `project, section, varve_no, method, position_no, x_px, thickness_px, crack_px, thickness_mm, thickness_corr_mm, measured_by` |
+| `thickness.csv` | measurement | `project, section, varve_no, method, position_no, x_px, y_px, thickness_px, crack_px, thickness_mm, thickness_corr_mm, measured_by` — `method` is `horizon` (one row per position), `horizon_area` (area mean) or `line` |
 
 `varve_no` is empty for rejected groups. Summaries (mean, SD, n per varve) are
 left to R.
@@ -387,29 +466,84 @@ left to R.
 ## 10. Images
 
 - **BMP** is shown natively by the browser.
-- **TIFF** needs a small decoder library (e.g. UTIF.js), which also gives the
-  DPI tags.
+- **TIFF** is decoded by the tool's own code (uncompressed, LZW, Deflate,
+  PackBits; strips or tiles; 8 or 16 bit), which also reads the DPI tags. No
+  external library, so the tool works offline.
 - A 10 cm thin section at 2400 DPI is about 9,500 × 1,900 px, which a plain
   canvas viewer handles easily, so no tiling is needed. Very large scans
   (stitched cores, 4800 DPI) are out of scope for now.
 - Saving uses the File System Access API where available (Chrome, Edge: save
   in place). Other browsers fall back to downloading the file.
 
-## 11. Plan
+## 11. Image export
+
+At any moment, in any module, the current section can be exported as an image
+with whatever is marked at that time. It is meant for figures, supplementary
+material, lab notes and checking work with others. It is **not** a data
+record: the JSON and CSV files remain the record.
+
+### 11.1 What is drawn
+
+The overlay is the one of the current module, as it is on screen:
+
+| Module | Overlay |
+|---|---|
+| Setup | path segments, joints, top/base labels with core depth |
+| 1 Count | path + **only the exporting counter's** boundaries (blindness is kept) |
+| 2 Decide | path + all counters' boundaries as parallel tracks, match links, accepted / rejected marks (as Fig. 9 of the paper) |
+| 3 Final | path, cracks, final varve marks with numbers, traced horizons, measurements |
+
+Each layer can be switched off before export: path, marks, numbers, labels.
+Unsaved work is included, because the export shows the state at that moment.
+
+### 11.2 Extent and resolution
+
+Export opens a dialog with a **live preview** of the file that will be
+written; every option below updates it.
+
+- **Whole section, full resolution (default)**: the full image at its native
+  pixel size, in its original orientation, with the overlay redrawn on top.
+  For figures. Line widths and label sizes are scaled to the image (a set size
+  in mm on the section, not in screen pixels: at size 1× labels are about
+  0.35 mm high), so they stay readable when printed. A size slider (0.5–4×)
+  adjusts them.
+- **Current view only (toggle)**: exactly what is on screen (zoom, rotation,
+  brightness and contrast), at screen resolution. Quick, for notes and
+  messages. Its DPI is the scan DPI × zoom.
+- Brightness and contrast are applied as set on screen (an option allows the
+  untouched image).
+
+### 11.3 Format
+
+- **PNG** (lossless). The section's DPI is written into the file (`pHYs`), so
+  the exported image keeps its scale and can be measured in other software.
+- Optional **caption strip** under the image: project, section, module,
+  person, date and time, core depth range, number of marks, DPI. Off by
+  default for clean figure panels.
+- Optional **scale bar** (e.g. 1 mm) drawn in a corner.
+- File name: `<project>.<section>.<module>[.<person>].<yyyymmdd-hhmm>.png`,
+  e.g. `ZAB-12.ZAB-12-1_0-10.count.P2.20261123-1530.png`.
+- A full-resolution 2400 DPI section (about 9,500 × 1,900 px) is a few MB,
+  well within browser limits.
+
+## 12. Plan
 
 1. **Version 1:** project setup (people, sections, DPI, segments with the
    joint guide, anchors, gap/overlap check) + Module 1 (blind counting) +
-   counts JSON/CSV.
-2. **Version 2:** Module 2 (matching, review, Method C, chronology CSV).
+   counts JSON/CSV. *(Done.)*
+   **Version 1.1:** image export (section 11) for Setup and Module 1. Later
+   modules add their overlays to the same export. *(Done.)*
+2. **Version 2:** Module 2 (matching, review, Method C, chronology CSV). *(Done.)*
 3. **Version 3:** Module 3 step 1 (cracks on the path, final varve depths,
-   varves and cracks CSV).
-4. **Version 4:** Module 3 step 2 (horizons, quick lines, thickness CSV).
+   varves and cracks CSV). *(Done.)*
+4. **Version 4:** Module 3 step 2 (horizons, quick lines, thickness CSV). *(Done.)*
 
-## 12. Open questions
+## 13. Open questions
 
 None at the moment.
 
 Decided: traced horizons are the Module 3 default, with quick lines as the
 fallback; no "uncertain" flag in Module 1; the Method C threshold is always a
-strict majority; cracks are marked only in Module 3; the tool exports varve
+strict majority; cracks are marked only in Module 3; image export defaults to
+the whole section at full resolution, with a toggle for the current view; the tool exports varve
 numbers only, with no calendar ages (floating chronologies are fine).
