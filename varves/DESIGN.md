@@ -387,27 +387,76 @@ left to R.
 ## 10. Images
 
 - **BMP** is shown natively by the browser.
-- **TIFF** needs a small decoder library (e.g. UTIF.js), which also gives the
-  DPI tags.
+- **TIFF** is decoded by the tool's own code (uncompressed, LZW, Deflate,
+  PackBits; strips or tiles; 8 or 16 bit), which also reads the DPI tags. No
+  external library, so the tool works offline.
 - A 10 cm thin section at 2400 DPI is about 9,500 × 1,900 px, which a plain
   canvas viewer handles easily, so no tiling is needed. Very large scans
   (stitched cores, 4800 DPI) are out of scope for now.
 - Saving uses the File System Access API where available (Chrome, Edge: save
   in place). Other browsers fall back to downloading the file.
 
-## 11. Plan
+## 11. Image export
+
+At any moment, in any module, the current section can be exported as an image
+with whatever is marked at that time. It is meant for figures, supplementary
+material, lab notes and checking work with others. It is **not** a data
+record: the JSON and CSV files remain the record.
+
+### 11.1 What is drawn
+
+The overlay is the one of the current module, as it is on screen:
+
+| Module | Overlay |
+|---|---|
+| Setup | path segments, joints, top/base labels with core depth |
+| 1 Count | path + **only the exporting counter's** boundaries (blindness is kept) |
+| 2 Decide | path + all counters' boundaries as parallel tracks, match links, accepted / rejected marks (as Fig. 9 of the paper) |
+| 3 Final | path, cracks, final varve marks with numbers, traced horizons, measurements |
+
+Each layer can be switched off before export: path, marks, numbers, labels.
+Unsaved work is included, because the export shows the state at that moment.
+
+### 11.2 Extent and resolution
+
+- **Current view**: exactly what is on screen (zoom, rotation, brightness and
+  contrast), at screen resolution. Quick, for notes and messages.
+- **Whole section, full resolution**: the full image at its native pixel size,
+  in its original orientation, with the overlay redrawn on top. For figures.
+  Line widths and label sizes are scaled to the image (a set size in mm on the
+  section, not in screen pixels), so they stay readable when printed.
+- Brightness and contrast are applied as set on screen (an option allows the
+  untouched image).
+
+### 11.3 Format
+
+- **PNG** (lossless). The section's DPI is written into the file (`pHYs`), so
+  the exported image keeps its scale and can be measured in other software.
+- Optional **caption strip** under the image: project, section, module,
+  person, date and time, core depth range, number of marks, DPI. Off by
+  default for clean figure panels.
+- Optional **scale bar** (e.g. 1 mm) drawn in a corner.
+- File name: `<project>.<section>.<module>[.<person>].<yyyymmdd-hhmm>.png`,
+  e.g. `ZAB-12.ZAB-12-1_0-10.count.P2.20261123-1530.png`.
+- A full-resolution 2400 DPI section (about 9,500 × 1,900 px) is a few MB,
+  well within browser limits.
+
+## 12. Plan
 
 1. **Version 1:** project setup (people, sections, DPI, segments with the
    joint guide, anchors, gap/overlap check) + Module 1 (blind counting) +
-   counts JSON/CSV.
+   counts JSON/CSV. *(Done.)*
+   **Version 1.1:** image export (section 11) for Setup and Module 1. Later
+   modules add their overlays to the same export.
 2. **Version 2:** Module 2 (matching, review, Method C, chronology CSV).
 3. **Version 3:** Module 3 step 1 (cracks on the path, final varve depths,
    varves and cracks CSV).
 4. **Version 4:** Module 3 step 2 (horizons, quick lines, thickness CSV).
 
-## 12. Open questions
+## 13. Open questions
 
-None at the moment.
+- Image export (11): should the default be the current view or the whole
+  section at full resolution?
 
 Decided: traced horizons are the Module 3 default, with quick lines as the
 fallback; no "uncertain" flag in Module 1; the Method C threshold is always a
