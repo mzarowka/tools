@@ -30,10 +30,11 @@ project file ── sections, paths, depth anchors, people, settings
 Module 1  Counting ──────────► one counts file per counter (blind)
         │
         ▼
-Module 2  Chronology (Method C) ► chronology file: matched boundaries, ±uncertainty
+Module 2  Varve decision (Method C) ► chronology file: matched boundaries, ±uncertainty
         │
         ▼
-Module 3  Thickness ─────────► thickness file: traced horizons, measurements
+Module 3  Final depths + thickness ─► cracks, final varve-depth table,
+                                      traced horizons, thickness measurements
 ```
 
 ## 2. Terms
@@ -113,7 +114,7 @@ The top of the record is the path start of the first section. So:
 Cracks (opened during freeze-drying or impregnation) often cross the whole
 section, so going around them with extra segments is not practical. They are
 **not marked during setup or counting**. They are handled in Module 3 (see
-7.3), because that is where they matter:
+7.1 and 7.4), because that is where they matter:
 
 - **Counting and Method C do not need them.** All counters click on the same
   image along the same path, so a crack shifts everyone's positions equally,
@@ -221,12 +222,30 @@ boundary. This is done in two steps.
 - Rejected boundaries are kept (with `included = false`), because they carry
   the positive uncertainty and show where the counters disagree.
 
-## 7. Module 3 — Thickness
+## 7. Module 3 — Final depths and thickness
+
+Two steps. Step 1 is quick and gives the final varve-depth relation. Step 2
+is the slow, detailed work and can be done later, or only for some intervals.
+
+### 7.1 Step 1: cracks on the path → final varve depths
+
+1. Mark every crack where it crosses the path (crack pair: upper and lower
+   edge, see 7.4).
+2. Depths of all accepted boundaries are recomputed with crack widths left
+   out (3.5), and the stretch factor is updated.
+3. Result: the **final varve-depth table**. One row per accepted varve:
+   varve number (counted from the top of the record), top and bottom core
+   depth, and the cumulative +/− uncertainty from Module 2.
+
+The tool works with **varve numbers only**. It does not convert them to
+calendar ages, so floating chronologies need no special handling. Anchoring
+to a year (coring year, tephra, etc.) and the year convention are left to the
+analysis in R.
+
+### 7.2 Step 2: thickness — traced horizons (default)
 
 Goal: varve thickness across the width of the section, not only along one
 line, and correct where laminae bend.
-
-### 7.1 Default: traced horizons
 
 A line drawn "at an angle" is only a true thickness if it is perpendicular to
 the lamina, and on bent laminae that is a guess. Instead:
@@ -250,13 +269,13 @@ The effort is similar to drawing three lines per varve (a 3–4-click horizon pe
 boundary instead of 3 × 2 clicks per varve), but the result is geometrically
 well defined.
 
-### 7.2 Fallback: quick lines
+### 7.3 Fallback: quick lines
 
 For simple, parallel laminae, a quicker mode: draw up to 3 lines per varve,
 each from base to top. The thickness is the line length. Results are marked
 with `method = "line"` so the two modes are never mixed silently.
 
-### 7.3 Cracks in Module 3
+### 7.4 Cracks in Module 3
 
 The crack tool **always produces a pair**: an upper edge and a lower edge.
 The edges are traced sideways, as two short horizons.
@@ -277,7 +296,7 @@ The edges are traced sideways, as two short horizons.
   already counted keep their depth order; only their depth values shift
   slightly.
 
-### 7.4 Units
+### 7.5 Units
 
 Each measurement is reported in two ways:
 
@@ -358,6 +377,7 @@ small, and keeps counters independent.
 |---|---|---|
 | `counts.csv` | click | `project, section, person, boundary_id, s_mm, core_depth_mm, x_px, y_px` |
 | `chronology.csv` | matched group | `project, section, group_id, varve_no, included, n_agree, n_counters, persons, core_depth_mm, top_mm, bottom_mm, unc_pos_cum, unc_neg_cum` |
+| `varves.csv` | accepted varve (final) | `project, section, varve_no, top_depth_mm, bottom_depth_mm, unc_pos_cum, unc_neg_cum, crack_corrected` |
 | `cracks.csv` | crack | `project, section, crack_id, crosses_path, s_upper_mm, s_lower_mm, width_mm, core_depth_mm` |
 | `thickness.csv` | measurement | `project, section, varve_no, method, position_no, x_px, thickness_px, crack_px, thickness_mm, thickness_corr_mm, measured_by` |
 
@@ -381,8 +401,9 @@ left to R.
    joint guide, anchors, gap/overlap check) + Module 1 (blind counting) +
    counts JSON/CSV.
 2. **Version 2:** Module 2 (matching, review, Method C, chronology CSV).
-3. **Version 3:** Module 3 (horizons, cracks, measurements, depth refinement,
-   thickness and cracks CSV).
+3. **Version 3:** Module 3 step 1 (cracks on the path, final varve depths,
+   varves and cracks CSV).
+4. **Version 4:** Module 3 step 2 (horizons, quick lines, thickness CSV).
 
 ## 12. Open questions
 
@@ -390,4 +411,5 @@ None at the moment.
 
 Decided: traced horizons are the Module 3 default, with quick lines as the
 fallback; no "uncertain" flag in Module 1; the Method C threshold is always a
-strict majority; cracks are marked only in Module 3.
+strict majority; cracks are marked only in Module 3; the tool exports varve
+numbers only, with no calendar ages (floating chronologies are fine).
