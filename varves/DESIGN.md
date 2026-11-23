@@ -1,6 +1,6 @@
 # Varve counter — design
 
-Status: **draft for discussion**. Nothing is implemented yet.
+Status: **version 1 implemented** (project setup + Module 1) in [`index.html`](index.html). Modules 2 and 3 are designed but not built yet.
 
 A browser tool for counting varves on scanned thin sections, building a varve
 chronology with uncertainty (Method C of Żarczyński, Tylmann & Goslar 2018,
@@ -375,7 +375,7 @@ small, and keeps counters independent.
 
 | Export | One row per | Columns |
 |---|---|---|
-| `counts.csv` | click | `project, section, person, boundary_id, s_mm, core_depth_mm, x_px, y_px` |
+| `counts.csv` | click | `project, section, person, seq, boundary_id, segment, s_mm, core_depth_mm, x_px, y_px` |
 | `chronology.csv` | matched group | `project, section, group_id, varve_no, included, n_agree, n_counters, persons, core_depth_mm, top_mm, bottom_mm, unc_pos_cum, unc_neg_cum` |
 | `varves.csv` | accepted varve (final) | `project, section, varve_no, top_depth_mm, bottom_depth_mm, unc_pos_cum, unc_neg_cum, crack_corrected` |
 | `cracks.csv` | crack | `project, section, crack_id, crosses_path, s_upper_mm, s_lower_mm, width_mm, core_depth_mm` |
