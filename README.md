@@ -9,7 +9,7 @@ bez instalacji i bez wysyłania danych.
 | Generator etykiet A4 (CSV → druk) | [`labels/`](labels/) | wersja 1 (bez QR) |
 | Generator tapet katedry (logo + dopisek, poziomice) | [`wallpaper/`](wallpaper/) | wersja 1 |
 | Generator tabliczek na drzwi (A5 gabinet, A5 pomieszczenie, mała 146×100) | [`tabliczki/`](tabliczki/) | wersja 3 |
-| Liczenie warw na szlifach (Metoda C, miąższości) | [`varves/`](varves/) | wersja 3: ustawienia, liczenie, Metoda C, głębokości, eksport obrazu ([DESIGN.md](varves/DESIGN.md)) |
+| Liczenie warw na szlifach (Metoda C, miąższości) | [`varves/`](varves/) | wersja 4: ustawienia, liczenie, Metoda C, głębokości, miąższości, eksport obrazu ([DESIGN.md](varves/DESIGN.md)) |
 
 ## Autorzy
 

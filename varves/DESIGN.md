@@ -1,6 +1,6 @@
 # Varve counter — design
 
-Status: **version 3 implemented** (project setup, Module 1, Module 2, Module 3 step 1 and image export) in [`index.html`](index.html). Module 3 step 2 (thickness) is designed but not built yet.
+Status: **version 4 implemented** — all modules (project setup, Module 1, Module 2, Module 3 steps 1–2) and image export — in [`index.html`](index.html).
 
 A browser tool for counting varves on scanned thin sections, building a varve
 chronology with uncertainty (Method C of Żarczyński, Tylmann & Goslar 2018,
@@ -348,7 +348,34 @@ The edges are traced sideways, as two short horizons.
   already counted keep their depth order; only their depth values shift
   slightly.
 
-### 7.5 Units
+### 7.5 Implementation notes (version 4)
+
+- **Tracing a horizon:** select a final boundary (click its mark, or ◂ ▸ /
+  `[` `]`), click points along the lamina on either side of the path, finish
+  with Enter, double-click or right-click. The boundary's mark on the path is
+  added automatically, and the points are ordered across the path. The tool
+  then moves to the next boundary (optional).
+- **Measuring axis:** for a varve, the axis along the laminae is the path
+  normal at the middle of the varve. The part where both horizons exist along
+  this axis is the shared width; the positions (default 3, a setting) are at
+  its 1/6, 3/6, 5/6.
+- **Thickness at a position:** shortest distance from the base horizon to the
+  top horizon. **Area mean:** the distance between the two horizons measured
+  along the path, averaged over 64 positions across the shared width (= area /
+  width).
+- **Crack along a boundary:** tick “Crack along this boundary” and trace the
+  upper edge, then the lower edge, for that boundary.
+- **Crack inside a varve:** traced as an upper and a lower edge; it belongs to
+  the varve its centre falls in. At each position its width (shortest
+  distance between its edges) is subtracted; for the area mean its height
+  along the path is subtracted.
+- **First varve of a section:** its top boundary lies in the previous section
+  (another image), so it cannot be measured with horizons; quick lines work.
+- **Quick lines** are assigned to the varve that contains their midpoint. A
+  crack on a line is two clicks projected onto the line.
+- `thickness_corr_mm` uses the stretch factor without the path cracks (3.5).
+
+### 7.6 Units
 
 Each measurement is reported in two ways:
 
@@ -431,7 +458,7 @@ small, and keeps counters independent.
 | `chronology.csv` | matched group | `project, section, group_id, varve_no, included, status, n_agree, n_counters, persons, s_mm, core_depth_mm, top_mm, bottom_mm, unc_pos_cum, unc_neg_cum, checked, manual` |
 | `varves.csv` | accepted varve (final) | `project, section, varve_no, status, top_depth_mm, bottom_depth_mm, bottom_depth_uncorrected_mm, unc_pos_cum, unc_neg_cum, crack_corrected` |
 | `cracks.csv` | crack | `project, section, crack_id, crosses_path, s_upper_mm, s_lower_mm, width_mm, core_depth_mm` |
-| `thickness.csv` | measurement | `project, section, varve_no, method, position_no, x_px, thickness_px, crack_px, thickness_mm, thickness_corr_mm, measured_by` |
+| `thickness.csv` | measurement | `project, section, varve_no, method, position_no, x_px, y_px, thickness_px, crack_px, thickness_mm, thickness_corr_mm, measured_by` — `method` is `horizon` (one row per position), `horizon_area` (area mean) or `line` |
 
 `varve_no` is empty for rejected groups. Summaries (mean, SD, n per varve) are
 left to R.
@@ -509,7 +536,7 @@ written; every option below updates it.
 2. **Version 2:** Module 2 (matching, review, Method C, chronology CSV). *(Done.)*
 3. **Version 3:** Module 3 step 1 (cracks on the path, final varve depths,
    varves and cracks CSV). *(Done.)*
-4. **Version 4:** Module 3 step 2 (horizons, quick lines, thickness CSV).
+4. **Version 4:** Module 3 step 2 (horizons, quick lines, thickness CSV). *(Done.)*
 
 ## 13. Open questions
 

@@ -5,8 +5,8 @@ open it in a browser (Chrome or Edge recommended), nothing to install, works off
 and images never leave the computer.
 
 The full design (three modules, Method C, file formats) is in [DESIGN.md](DESIGN.md).
-**Version 3** contains the project setup, Module 1 (blind counting), Module 2 (Method C), Module 3 step 1
-(cracks and final varve depths) and image export.
+**Version 4** contains everything in the design: project setup, Module 1 (blind counting), Module 2
+(Method C), Module 3 (cracks, final varve depths, thickness) and image export.
 
 ## Workflow
 
@@ -75,6 +75,27 @@ The full design (three modules, Method C, file formats) is in [DESIGN.md](DESIGN
    **Export varves CSV** → one row per varve: varve number, top and bottom core depth
    (crack-corrected), cumulative +/− uncertainty. **Export cracks CSV** lists the cracks.
 
+### 6. Varve thickness (Module 3, step 2)
+
+1. In **3 Final** choose **2 · Horizons**. Select a boundary (click its mark on the path, or
+   **◂ / ▸ Boundary**, keys <kbd>[</kbd> <kbd>]</kbd>).
+2. Click a few points along that lamina on both sides of the path, then Enter (or
+   double-click / right-click). The mark on the path is included; the next boundary is
+   selected automatically.
+3. Every varve with horizons at its top and base gets its thickness at 3 positions
+   (shortest distance between the horizons; the number is a setting) and an area mean.
+4. **Cracks:**
+   - along a boundary: tick *Crack along this boundary* and trace the upper, then the lower edge;
+   - inside a varve: **Cracks in varves**, trace the upper edge (Enter), then the lower edge (Enter).
+   Their widths are subtracted.
+5. **Quick lines** (fallback for simple laminae): click the base, then the top of a varve;
+   **Crack on line (K)** + two clicks marks a crack on the selected line.
+6. **Export thickness CSV** → one row per measurement (`horizon`, `horizon_area` or `line`),
+   in px, mm and mm corrected for the stretch.
+
+The first varve of each section cannot be measured with horizons (its top is in the previous
+image); use a quick line there.
+
 ### Export an image
 
 **Export…** (top right, or <kbd>E</kbd>) saves the current section with whatever is marked at
@@ -98,4 +119,4 @@ later, in Module 3.
 
 ## Not yet
 
-- Module 3 step 2: varve thickness from traced horizons (version 4).
+- Testing on real scans and real counts.

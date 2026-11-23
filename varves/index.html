@@ -123,7 +123,7 @@
 
 <aside class="panel">
   <div class="panel-top">
-    <h1>Varve counter <small>v3</small></h1>
+    <h1>Varve counter <small>v4</small></h1>
     <label class="field"><span>I am</span><select id="personSel"></select></label>
     <div class="tabs" id="tabs">
       <button data-tab="project" class="active">Project</button>
@@ -298,16 +298,41 @@
       <label class="check"><input type="checkbox" id="fDone"> All cracks on the path are marked in this section</label>
     </section>
     <section>
-      <h2>Step 1 · Cracks on the path</h2>
-      <p class="hint" style="margin-top:0">Where a crack crosses the path, click its upper edge and then its lower edge. The crack width is left out of the depths. Drag an edge to adjust it; right-click a crack (or <kbd>Del</kbd>) removes it.</p>
-      <div id="fSel"></div>
-      <div class="row mt"><button id="fDel">Delete crack</button></div>
-      <div class="legend">
-        <i style="background:#ff4fd8"></i><span>crack (left out of the depths)</span>
-        <i style="background:#39d353"></i><span>varve, all counters agree</span>
-        <i style="background:#ffd400"></i><span>varve by majority (negative uncertainty)</span>
+      <h2>Mark and measure</h2>
+      <div class="row">
+        <button data-m3tool="pathcrack" class="on" title="Step 1: cracks where they cross the path">1 · Cracks on path</button>
+        <button data-m3tool="horizon" title="Step 2: trace each boundary sideways">2 · Horizons</button>
+        <button data-m3tool="line" title="Fallback: thickness from lines base → top">Quick lines</button>
+        <button data-m3tool="vcrack" title="A crack inside a varve, subtracted from the thickness">Cracks in varves</button>
       </div>
-      <p class="hint">Step 2 — varve thickness from traced horizons — comes in version 4.</p>
+      <p class="hint" id="m3ToolHint"></p>
+      <div id="step1Box">
+        <div id="fSel"></div>
+        <div class="row mt"><button id="fDel">Delete crack</button></div>
+      </div>
+      <div id="step2Box" hidden>
+        <div id="hOpts">
+          <label class="check"><input type="checkbox" id="hCrack"> Crack along this boundary (trace its upper, then its lower edge)</label>
+          <label class="check"><input type="checkbox" id="hAdv" checked> Go to the next boundary after each horizon</label>
+        </div>
+        <div class="grid2 mt"><label class="field"><span>Positions per varve</span><input id="m3Pos" type="number" min="1" max="10" step="1"></label></div>
+        <div id="m3Sel"></div>
+        <div class="row mt">
+          <span id="m3Nav" class="row"><button id="m3Prev" title="Previous boundary ([)">◂ Boundary</button><button id="m3Next" title="Next boundary (])">Boundary ▸</button></span>
+          <button id="m3LineCrack" title="Mark a crack on the selected line (K)">Crack on line (K)</button>
+          <button id="m3Del">Delete selected</button>
+        </div>
+        <dl id="m3Stats" class="stats"></dl>
+        <div class="row mt"><button id="fThickCsv">Export thickness CSV</button></div>
+      </div>
+      <div class="legend">
+        <i style="background:#ff4fd8"></i><span>crack (left out of depths and thickness)</span>
+        <i style="background:#39d353"></i><span>varve boundary, all counters agree</span>
+        <i style="background:#ffd400"></i><span>varve boundary by majority</span>
+        <i style="background:#ffffff;border:1px solid #999"></i><span>horizon (traced boundary)</span>
+        <i style="background:#00e5ff"></i><span>thickness measurement</span>
+        <i style="background:#ff9f1c"></i><span>quick line</span>
+      </div>
     </section>
   </div>
 
@@ -407,7 +432,7 @@
    Design: DESIGN.md in this folder.
    ===================================================================== */
 
-const APP = 'varves-counter@3';
+const APP = 'varves-counter@4';
 const SCHEMA_PROJECT = 'varves/project@1';
 const SCHEMA_COUNTS = 'varves/counts@1';
 const MM_PER_IN = 25.4;
@@ -1277,7 +1302,7 @@ function drawOverlay(sec) {
   if (R.layers.path || R.layers.labels) drawPath(sec);
   if (state.tab === 'count' && (R.layers.marks || R.layers.nums)) drawBoundaries(sec);
   if (state.tab === 'decide') drawDecide(sec);
-  if (state.tab === 'final') drawFinal(sec);
+  if (state.tab === 'final') { drawFinal(sec); drawThickness(sec); }
 }
 
 function drawPath(sec) {
@@ -1497,7 +1522,7 @@ cv.addEventListener('pointerdown', e => {
     const b = hitBoundary(sec, sx, sy);
     if (b) { state.selB = b.id; drag = { kind: 'boundary', b, sx, sy, moved: false }; renderCountStats(); requestDraw(); return; }
   }
-  if (state.tab === 'final' && !m3.pending) {
+  if (state.tab === 'final' && m3.tool === 'pathcrack' && !m3.pending) {
     const hc = crackHit(sec, sx, sy, true);
     if (hc) { m3.sel = hc.id; drag = { kind: 'crack', ...hc, sx, sy, moved: false }; renderFinalSel(); requestDraw(); return; }
   }
@@ -1550,6 +1575,7 @@ cv.addEventListener('pointerup', e => {
   }
   if (d.kind !== 'pan' || e.button !== 0) return;
   if (state.tab === 'decide') { decideClick(sec, ...pos(e), e.shiftKey); return; }
+  if (state.tab === 'final' && m3.tool !== 'pathcrack') { m3Click(sec, ...pos(e), toImage(...pos(e)), e.shiftKey); return; }
   if (state.tab === 'final') {
     const hit = !m3.pending && crackHit(sec, ...pos(e), false);
     if (hit) { m3.sel = hit.id; renderFinalSel(); requestDraw(); }
@@ -1576,6 +1602,7 @@ cv.addEventListener('pointerup', e => {
 });
 
 cv.addEventListener('dblclick', e => {
+  if (state.tab === 'final' && m3.draft && m3.tool !== 'line') { e.preventDefault(); finishM3Draft(); return; }
   if (state.tab === 'setup' && state.tool === 'draw' && state.draft) { e.preventDefault(); finishDraft(); }
 });
 
@@ -1587,6 +1614,14 @@ cv.addEventListener('contextmenu', e => {
   if (state.tab === 'count' && state.counts) {
     const b = hitBoundary(sec, sx, sy);
     if (b) deleteBoundary(sec, b.id);
+  } else if (state.tab === 'final' && m3.tool !== 'pathcrack') {
+    if (m3.draft && m3.tool !== 'line') finishM3Draft();
+    else if (m3.draft || m3.lineCrack) cancelM3Draft();
+    else {
+      if (m3.tool === 'horizon') { const g = hitHorizon(sec, sx, sy); if (g) { m3.hsel = g; deleteM3Selected(); } }
+      if (m3.tool === 'line') { const l = hitLine(sec, sx, sy); if (l) { m3.lsel = l; deleteM3Selected(); } }
+      if (m3.tool === 'vcrack') { const c = hitVcrack(sec, sx, sy); if (c) { m3.vsel = c; deleteM3Selected(); } }
+    }
   } else if (state.tab === 'final') {
     if (m3.pending) { m3.pending = null; renderFinalSel(); requestDraw(); }
     else { const hit = crackHit(sec, sx, sy, false); if (hit) deleteCrack(sec.id, hit.id); }
@@ -1666,14 +1701,17 @@ document.addEventListener('keydown', e => {
     case 'ArrowDown': panBy(0, -H() / 4); e.preventDefault(); break;
     case 'Delete': case 'Backspace':
       if (state.tab === 'count' && state.selB && sec) deleteBoundary(sec, state.selB);
-      else if (state.tab === 'final' && m3.sel && sec) deleteCrack(sec.id, m3.sel);
+      else if (state.tab === 'final') deleteM3Selected();
       else if (state.tab === 'setup' && state.selV) deleteVertex(state.selV);
       e.preventDefault();
       break;
-    case 'Enter': if (state.tab === 'setup' && state.draft) finishDraft(); break;
+    case 'Enter': if (state.tab === 'setup' && state.draft) finishDraft(); else if (state.tab === 'final' && m3.draft) finishM3Draft(); break;
+    case ']': if (state.tab === 'final') stepBoundary(1); break;
+    case '[': if (state.tab === 'final') stepBoundary(-1); break;
+    case 'k': case 'K': if (state.tab === 'final' && m3.tool === 'line' && m3.lsel) { m3.lineCrack = m3.lsel; m3.draft = []; renderM3Sel(); } break;
     case 'Escape':
       if (state.draft) state.draft = null;
-      else if (m3.pending) { m3.pending = null; renderFinalSel(); }
+      else if (m3.pending || m3.draft || m3.lineCrack) cancelM3Draft();
       else if (state.tool === 'scale') { state.scalePts = null; setTool('edit'); }
       state.selB = null; state.selV = null; requestDraw(); renderCountStats();
       break;
@@ -2351,7 +2389,8 @@ const CRACK_FILL = 'rgba(255,79,216,.28)', CRACK_LINE = '#ff4fd8';
 const m3 = { chrono: null, chronoName: null, doc: null, handle: null, fileName: null, dirty: false, pending: null, sel: null, _res: null };
 
 function m3Reset() {
-  Object.assign(m3, { chrono: null, chronoName: null, doc: null, handle: null, fileName: null, dirty: false, pending: null, sel: null, _res: null });
+  Object.assign(m3, { chrono: null, chronoName: null, doc: null, handle: null, fileName: null, dirty: false, pending: null, sel: null, _res: null,
+    draft: null, stage: null, upper: null, hsel: null, lsel: null, vsel: null, lineCrack: null, _thick: null, _thickFor: null });
   if (typeof undo !== 'undefined') { undo.final.length = 0; redo.final.length = 0; }
 }
 
@@ -2679,6 +2718,8 @@ function renderFinal() {
   const st = r.perSec[sec.id] || {}, k = mmPerPx(sec), cr = m3Cracks(sec.id);
   $('fDone').checked = !!st.done; $('fDone').disabled = !has || !sec.segments.length;
   const s0 = stretchFactor(sec), s1 = stretchCorrected(sec, cr);
+  $('m3Pos').value = m3Settings().positions;
+  renderM3Sel();
   $('fSecStats').innerHTML = [
     ['Varves here', st.has ? `${st.varves} (+${st.up} / −${st.un})` : 'not in the chronology'],
     ['Cracks', `${cr.length}` + (k && cr.length ? ` · ${fmt(crackTotal(cr) * k, 3)} mm in total` : '')],
@@ -2695,6 +2736,377 @@ function renderFinalSel() {
   const kk = mmPerPx(sec), { L } = pathInfo(sec), cr = m3Cracks(sec.id);
   $('fSel').innerHTML = `<div class="msg" style="background:#f3f5f7">Crack ${esc(k.c.id)} · width ${kk ? fmt((k.s_lower_px - k.s_upper_px) * kk, 3) + ' mm' : Math.round(k.s_lower_px - k.s_upper_px) + ' px'}` +
     `<br>at ${fmt(depthCorrected(sec, k.s_upper_px, L, cr) / 10, 4)} cm (corrected)</div>`;
+}
+
+/* =====================================================================
+   Module 3, step 2 — varve thickness, DESIGN.md §7.2–7.5
+   Horizons trace each final boundary sideways; one horizon is the base of
+   the varve above and the top of the varve below. Thickness = shortest
+   distance from the base horizon to the top horizon, at several positions,
+   plus an area-based mean. Quick lines are the fallback.
+   ===================================================================== */
+const MEAS_COLOR = '#00e5ff', LINE_COLOR = '#ff9f1c', HOR_COLOR = '#ffffff';
+const M3_TOOL_HINT = {
+  pathcrack: 'Step 1. Where a crack crosses the path, click its upper edge and then its lower edge. Drag an edge to adjust it; right-click or Delete removes a crack.',
+  horizon: 'Select a boundary (click its mark, or ◂ ▸), then click points along that lamina on both sides of the path; Enter, double-click or right-click finishes. The mark on the path is included automatically.',
+  line: 'Quick lines: click the base and then the top of a varve. With a line selected, “Crack on line” (K) and two clicks mark a crack on it.',
+  vcrack: 'A crack inside a varve: trace its upper edge (Enter), then its lower edge (Enter). Its width is subtracted from the thickness.',
+};
+Object.assign(m3, { tool: 'pathcrack', draft: null, stage: null, upper: null, hsel: null, lsel: null, vsel: null, lineCrack: null, _thick: null, _thickFor: null });
+
+const dot2 = (p, q, a) => (p[0] - q[0]) * a[0] + (p[1] - q[1]) * a[1];
+function m3Settings() { return { positions: (m3.doc && m3.doc.settings && m3.doc.settings.positions) || 3 }; }
+function m3SecFull(id) {
+  const ms = m3Sec(id, true);
+  ms.horizons = ms.horizons || {}; ms.lines = ms.lines || []; ms.vcracks = ms.vcracks || [];
+  return ms;
+}
+function distToPoly(p, pts) {
+  if (pts.length === 1) return { d: Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]), q: pts[0] };
+  let best = { d: Infinity, q: null };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1], vx = b[0] - a[0], vy = b[1] - a[1], l2 = vx * vx + vy * vy;
+    const t = l2 ? clamp(((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / l2, 0, 1) : 0;
+    const q = [a[0] + vx * t, a[1] + vy * t], d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+    if (d < best.d) best = { d, q };
+  }
+  return best;
+}
+/* Point of a polyline at coordinate t along axis a (origin O), or null outside it. */
+function polyAtT(pts, O, a, t) {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ta = dot2(pts[i], O, a), tb = dot2(pts[i + 1], O, a);
+    if (ta !== tb && (t - ta) * (t - tb) <= 0) {
+      const f = (t - ta) / (tb - ta);
+      return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f];
+    }
+  }
+  return null;
+}
+function tRange(pts, O, a) { const t = pts.map(p => dot2(p, O, a)); return [Math.min(...t), Math.max(...t)]; }
+/* Axis along the laminae at path position s: the path normal. */
+function laminaAxis(sec, s) { const { pt, dir } = pathPointAtS(sec, s); return { O: pt, a: [-dir[1], dir[0]], dir }; }
+
+/* All thickness results: per section, per final varve. Recomputed when m3Result changes. */
+function m3Thick() {
+  const res = m3Result();
+  if (m3._thick && m3._thickFor === res) return m3._thick;
+  if (!state.project) return { bySec: {} };
+  const K = m3Settings().positions, bySec = {};
+  for (const sec of state.project.sections) {
+    const rows = res.rows.filter(r => r.sec === sec.id);
+    const ms = m3Sec(sec.id, false) || {};
+    const HZ = ms.horizons || {}, lines = ms.lines || [], vcr = ms.vcracks || [];
+    const vcS = vcr.map(c => { const l = locate(sec, [...c.upper, ...c.lower].reduce((a, p, _, all) => [a[0] + p[0] / all.length, a[1] + p[1] / all.length], [0, 0])); return { c, s: l ? l.s : null }; });
+    const out = rows.map((row, j) => ({ row, prev: j ? rows[j - 1] : null, status: j ? 'missing' : 'spans', positions: [], area: null, lines: [] }));
+    out.forEach(v => {
+      if (!v.prev) return;
+      const hb = HZ[v.row.g.id], ht = HZ[v.prev.g.id];
+      if (!hb || !ht) return;
+      const base = hb.points, top = ht.lower || ht.points;
+      const { O, a, dir } = laminaAxis(sec, (v.prev.s + v.row.s) / 2);
+      const rb = tRange(base, O, a), rt = tRange(top, O, a);
+      const t0 = Math.max(rb[0], rt[0]), t1 = Math.min(rb[1], rt[1]);
+      if (!(t1 > t0)) { v.status = 'no overlap'; return; }
+      const cr = vcS.filter(x => x.s != null && x.s > v.prev.s && x.s < v.row.s).map(x => x.c);
+      for (let k = 0; k < K; k++) {
+        const t = t0 + ((k + 0.5) / K) * (t1 - t0);
+        const B = polyAtT(base, O, a, t);
+        if (!B) continue;
+        const { d: raw, q: T } = distToPoly(B, top);
+        let crack = 0;
+        for (const c of cr) { const U = polyAtT(c.upper, O, a, t); if (U) crack += distToPoly(U, c.lower).d; }
+        v.positions.push({ k: k + 1, B, T, raw, crack, net: raw - crack });
+      }
+      let sum = 0, n = 0;
+      for (let m = 0; m < 64; m++) {
+        const t = t0 + ((m + 0.5) / 64) * (t1 - t0);
+        const Bm = polyAtT(base, O, a, t), Tm = polyAtT(top, O, a, t);
+        if (!Bm || !Tm) continue;
+        let hgt = Math.abs(dot2(Bm, Tm, dir));
+        for (const c of cr) { const U = polyAtT(c.upper, O, a, t), Lw = polyAtT(c.lower, O, a, t); if (U && Lw) hgt -= Math.abs(dot2(U, Lw, dir)); }
+        sum += hgt; n++;
+      }
+      v.area = n ? sum / n : null;
+      v.width = t1 - t0;
+      v.status = 'ok';
+    });
+    const unassigned = [];
+    for (const ln of lines) {
+      const l = locate(sec, [(ln.x1 + ln.x2) / 2, (ln.y1 + ln.y2) / 2]);
+      const v = l && out.find(x => x.row.s > l.s && (!x.prev || x.prev.s < l.s));
+      const len = Math.hypot(ln.x2 - ln.x1, ln.y2 - ln.y1), cl = ln.crack ? Math.hypot(ln.crack[1][0] - ln.crack[0][0], ln.crack[1][1] - ln.crack[0][1]) : 0;
+      const m = { ln, raw: len, crack: cl, net: len - cl };
+      if (v) v.lines.push(m); else unassigned.push(m);
+    }
+    bySec[sec.id] = { varves: out, unassigned };
+  }
+  m3._thickFor = res;
+  return (m3._thick = { bySec });
+}
+
+function thicknessCSV() {
+  const T = m3Thick(), f4 = v => (v == null || !isFinite(v) ? '' : v.toFixed(4)), f1 = v => (v == null ? '' : round(v, 1));
+  const head = ['project', 'section', 'varve_no', 'method', 'position_no', 'x_px', 'y_px', 'thickness_px', 'crack_px', 'thickness_mm', 'thickness_corr_mm', 'measured_by'];
+  const rows = [], who = (m3.doc && m3.doc.measured_by) || state.person || '';
+  for (const sec of state.project.sections) {
+    const k = mmPerPx(sec), st = stretchCorrected(sec, m3Cracks(sec.id));
+    const mm = px => (k ? px * k : null), corr = px => (k && st ? px * k * st : null);
+    for (const v of (T.bySec[sec.id] || { varves: [] }).varves) {
+      for (const p of v.positions) rows.push([state.project.project, sec.id, v.row.varve, 'horizon', p.k, f1(p.B[0]), f1(p.B[1]), f4(p.net), f4(p.crack), f4(mm(p.net)), f4(corr(p.net)), who]);
+      if (v.area != null) rows.push([state.project.project, sec.id, v.row.varve, 'horizon_area', '', '', '', f4(v.area), '', f4(mm(v.area)), f4(corr(v.area)), who]);
+      v.lines.forEach((m, i) => rows.push([state.project.project, sec.id, v.row.varve, 'line', i + 1, f1((m.ln.x1 + m.ln.x2) / 2), f1((m.ln.y1 + m.ln.y2) / 2), f4(m.net), f4(m.crack), f4(mm(m.net)), f4(corr(m.net)), who]));
+    }
+  }
+  return [head, ...rows].map(rw => rw.map(csvCell).join(',')).join('\n') + '\n';
+}
+function exportThicknessCSV() {
+  if (!m3.chrono) { toast('Load the chronology first.', 'err'); return; }
+  download(thicknessCSV(), `${state.project.project}.thickness.csv`, 'text/csv');
+  toast('Thickness CSV exported.');
+}
+
+/* ---- selection and navigation of final boundaries ---- */
+function finalRows(secId) { return m3Result().rows.filter(r => r.sec === secId); }
+function markHit(sec, sx, sy) {
+  let best = null, bd = 10;
+  for (const r of finalRows(sec.id)) {
+    const q = toScreen(pathPointAtS(sec, r.s).pt), d = Math.hypot(q[0] - sx, q[1] - sy);
+    if (d < bd) { bd = d; best = r.g.id; }
+  }
+  return best;
+}
+function selectBoundary(secId, gid, center) {
+  m3.hsel = gid; m3.lsel = null; m3.vsel = null;
+  if (center && gid) { const r = finalRows(secId).find(x => x.g.id === gid); if (r) centerOnS(secById(secId), r.s); }
+  renderM3Sel(); requestDraw();
+}
+function stepBoundary(dir) {
+  if (!m3.chrono) return;
+  const all = m3Result().rows;
+  if (!all.length) return;
+  let i = all.findIndex(r => r.sec === state.secId && r.g.id === m3.hsel);
+  if (i < 0) { const rs = all.filter(r => r.sec === state.secId); i = rs.length ? all.indexOf(dir > 0 ? rs[0] : rs[rs.length - 1]) - dir : (dir > 0 ? -1 : all.length); }
+  const t = all[clamp(i + dir, 0, all.length - 1)];
+  if (t.sec !== state.secId) selectSection(t.sec);
+  selectBoundary(t.sec, t.g.id, true);
+}
+
+/* ---- drafts ---- */
+function cleanDraft(pts) {
+  const out = [];
+  for (const p of pts) { const q = out[out.length - 1]; if (!q || Math.hypot((p[0] - q[0]) * view.scale, (p[1] - q[1]) * view.scale) > 3) out.push(p); }
+  return out;
+}
+function m3Click(sec, sx, sy, p, shift) {
+  p = [round(p[0], 1), round(p[1], 1)];
+  if (!m3.chrono && m3.tool !== 'vcrack') { toast('Load the chronology first.', 'err'); return; }
+  if (m3.tool === 'horizon') {
+    if (!m3.draft) {
+      const g = markHit(sec, sx, sy);
+      if (g && !shift) { selectBoundary(sec.id, g, false); return; }
+      if (!m3.hsel || !finalRows(sec.id).some(r => r.g.id === m3.hsel)) { toast('Select a boundary first: click its mark on the path.', 'err'); return; }
+      m3.draft = []; m3.stage = $('hCrack').checked ? 'upper' : 'single';
+    }
+    m3.draft.push(p); renderM3Sel(); requestDraw(); return;
+  }
+  if (m3.tool === 'vcrack') {
+    if (!m3.draft) {
+      const h = hitVcrack(sec, sx, sy);
+      if (h) { m3.vsel = h; m3.lsel = null; renderM3Sel(); requestDraw(); return; }
+      m3.draft = []; m3.stage = 'upper';
+    }
+    m3.draft.push(p); renderM3Sel(); requestDraw(); return;
+  }
+  if (m3.tool === 'line') {
+    const ms = m3SecFull(sec.id);
+    if (m3.lineCrack) {
+      const ln = ms.lines.find(l => l.id === m3.lineCrack);
+      const a = [ln.x1, ln.y1], b = [ln.x2, ln.y2], q = distToPoly(p, [a, b]).q;
+      m3.draft = (m3.draft || []).concat([[round(q[0], 1), round(q[1], 1)]]);
+      if (m3.draft.length === 2) { pushUndo('final'); ln.crack = m3.draft; m3.draft = null; m3.lineCrack = null; touchM3(); renderFinal(); }
+      requestDraw(); return;
+    }
+    if (!m3.draft) {
+      const h = hitLine(sec, sx, sy);
+      if (h) { m3.lsel = h; m3.vsel = null; renderM3Sel(); requestDraw(); return; }
+      m3.draft = [p]; requestDraw(); return;
+    }
+    if (Math.hypot((p[0] - m3.draft[0][0]) * view.scale, (p[1] - m3.draft[0][1]) * view.scale) < 4) return;
+    ensureDoc(); pushUndo('final');
+    ms.next_line = (ms.next_line || 0) + 1;
+    const id = 'l' + String(ms.next_line).padStart(4, '0');
+    ms.lines.push({ id, x1: m3.draft[0][0], y1: m3.draft[0][1], x2: p[0], y2: p[1], crack: null });
+    m3.draft = null; m3.lsel = id;
+    touchM3(); renderFinal(); requestDraw();
+  }
+}
+function finishM3Draft() {
+  const sec = curSec();
+  if (!sec || !m3.draft) return;
+  const pts = cleanDraft(m3.draft);
+  if (m3.tool === 'horizon') {
+    const row = finalRows(sec.id).find(r => r.g.id === m3.hsel);
+    if (!row) { m3.draft = null; requestDraw(); return; }
+    const { O, a } = laminaAxis(sec, row.s);
+    const byT = arr => arr.slice().sort((x, y) => dot2(x, O, a) - dot2(y, O, a));
+    if (m3.stage === 'lower') {
+      if (pts.length < 2) { toast('Trace the lower edge with at least two points.', 'err'); return; }
+      saveHorizon(sec, row, { points: m3.upper, lower: byT(pts) });
+      return;
+    }
+    const all = byT([O.map(v => round(v, 1)), ...pts]);
+    if (all.length < 2) { toast('Click at least one point along the lamina beside the path.', 'err'); return; }
+    if (m3.stage === 'upper') { m3.upper = all; m3.draft = []; m3.stage = 'lower'; renderM3Sel(); requestDraw(); toast('Now trace the lower edge of the crack.'); return; }
+    saveHorizon(sec, row, { points: all });
+    return;
+  }
+  if (m3.tool === 'vcrack') {
+    if (pts.length < 2) { toast('Trace the edge with at least two points.', 'err'); return; }
+    if (m3.stage !== 'lower' || !m3.upper) { m3.upper = pts; m3.draft = []; m3.stage = 'lower'; renderM3Sel(); requestDraw(); toast('Now trace the lower edge.'); return; }
+    ensureDoc(); pushUndo('final');
+    const ms = m3SecFull(sec.id);
+    ms.next_vc = (ms.next_vc || 0) + 1;
+    const id = 'v' + String(ms.next_vc).padStart(3, '0');
+    ms.vcracks.push({ id, upper: m3.upper, lower: pts });
+    m3.draft = null; m3.upper = null; m3.stage = null; m3.vsel = id;
+    touchM3(); renderFinal(); requestDraw();
+  }
+}
+function saveHorizon(sec, row, h) {
+  ensureDoc(); pushUndo('final');
+  m3SecFull(sec.id).horizons[row.g.id] = h;
+  m3.draft = null; m3.upper = null; m3.stage = null;
+  touchM3(); renderFinal();
+  if ($('hAdv').checked) stepBoundary(1); else requestDraw();
+}
+function cancelM3Draft() { m3.draft = null; m3.upper = null; m3.stage = null; m3.lineCrack = null; m3.pending = null; renderM3Sel(); requestDraw(); }
+function deleteM3Selected() {
+  const sec = curSec();
+  if (!sec || !m3.doc) return;
+  if (m3.tool === 'pathcrack') { if (m3.sel) deleteCrack(sec.id, m3.sel); return; }
+  const ms = m3SecFull(sec.id);
+  if (m3.tool === 'horizon' && m3.hsel && ms.horizons[m3.hsel]) { pushUndo('final'); delete ms.horizons[m3.hsel]; }
+  else if (m3.tool === 'line' && m3.lsel) { pushUndo('final'); ms.lines = ms.lines.filter(l => l.id !== m3.lsel); m3.lsel = null; }
+  else if (m3.tool === 'vcrack' && m3.vsel) { pushUndo('final'); ms.vcracks = ms.vcracks.filter(c => c.id !== m3.vsel); m3.vsel = null; }
+  else return;
+  touchM3(); renderFinal(); requestDraw();
+}
+function hitLine(sec, sx, sy) {
+  const ms = m3Sec(sec.id, false);
+  let best = null, bd = 8;
+  for (const l of (ms && ms.lines) || []) {
+    const d = distToPoly([sx, sy], [toScreen([l.x1, l.y1]), toScreen([l.x2, l.y2])]).d;
+    if (d < bd) { bd = d; best = l.id; }
+  }
+  return best;
+}
+function hitVcrack(sec, sx, sy) {
+  const ms = m3Sec(sec.id, false);
+  let best = null, bd = 8;
+  for (const c of (ms && ms.vcracks) || []) {
+    for (const e of [c.upper, c.lower]) { const d = distToPoly([sx, sy], e.map(toScreen)).d; if (d < bd) { bd = d; best = c.id; } }
+  }
+  return best;
+}
+function hitHorizon(sec, sx, sy) {
+  const ms = m3Sec(sec.id, false);
+  let best = null, bd = 8;
+  for (const [gid, h] of Object.entries((ms && ms.horizons) || {})) {
+    for (const e of [h.points, h.lower].filter(Boolean)) { const d = distToPoly([sx, sy], e.map(toScreen)).d; if (d < bd) { bd = d; best = gid; } }
+  }
+  return best;
+}
+
+/* ---- drawing step 2 ---- */
+function drawThickness(sec) {
+  const ms = m3Sec(sec.id, false), u = R.u;
+  if (R.layers.marks && ms) {
+    for (const c of ms.vcracks || []) {
+      ctx.beginPath();
+      [...c.upper, ...c.lower.slice().reverse()].forEach((p, i) => { const q = toScreen(p); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+      ctx.closePath(); ctx.fillStyle = CRACK_FILL; ctx.fill();
+      const sel = !R.exp && m3.vsel === c.id;
+      strokePoly(c.upper, sel ? '#fff' : CRACK_LINE, sel ? 2.2 : 1.4); strokePoly(c.lower, sel ? '#fff' : CRACK_LINE, sel ? 2.2 : 1.4);
+    }
+    for (const [gid, h] of Object.entries(ms.horizons || {})) {
+      const sel = !R.exp && m3.hsel === gid;
+      strokePoly(h.points, sel ? '#39ff88' : HOR_COLOR, sel ? 2 : 1.3);
+      if (h.lower) strokePoly(h.lower, sel ? '#39ff88' : CRACK_LINE, sel ? 2 : 1.3);
+    }
+    const T = m3Thick().bySec[sec.id];
+    if (T) for (const v of T.varves) for (const p of v.positions) { strokePoly([p.B, p.T], MEAS_COLOR, 1.2); dot(p.B, 2.2, MEAS_COLOR); }
+    for (const l of ms.lines || []) {
+      const sel = !R.exp && m3.lsel === l.id;
+      strokePoly([[l.x1, l.y1], [l.x2, l.y2]], sel ? '#fff' : LINE_COLOR, sel ? 2.2 : 1.5);
+      dot([l.x1, l.y1], 2.5, LINE_COLOR);
+      if (l.crack) strokePoly(l.crack, CRACK_LINE, 3.5);
+    }
+  }
+  if (R.exp) return;
+  if (m3.tool === 'horizon' && m3.hsel) {
+    const r = finalRows(sec.id).find(x => x.g.id === m3.hsel);
+    if (r) { const q = toScreen(pathPointAtS(sec, r.s).pt); ctx.beginPath(); ctx.arc(q[0], q[1], 11 * u, 0, Math.PI * 2); ctx.lineWidth = 2.5 * u; ctx.strokeStyle = '#39ff88'; ctx.stroke(); }
+  }
+  if (m3.draft && (m3.draft.length || m3.upper)) {
+    let pts = m3.draft.slice();
+    if (m3.tool === 'horizon' && m3.stage !== 'lower') {
+      const r = finalRows(sec.id).find(x => x.g.id === m3.hsel);
+      if (r) { const { O, a } = laminaAxis(sec, r.s); pts = [O, ...pts].sort((x, y) => dot2(x, O, a) - dot2(y, O, a)); }
+    }
+    if (m3.upper) strokePoly(m3.upper, '#39ff88', 1.5);
+    if (state.cursor && m3.tool === 'line' && !m3.lineCrack && pts.length === 1) pts.push(state.cursor);
+    strokePoly(pts, m3.stage === 'lower' || m3.tool === 'vcrack' || m3.lineCrack ? CRACK_LINE : '#39ff88', 1.5, [6, 4]);
+    pts.forEach(p => dot(p, 3.5, '#39ff88'));
+  }
+}
+
+/* ---- panel step 2 ---- */
+function setM3Tool(t) {
+  cancelM3Draft();
+  m3.tool = t;
+  document.querySelectorAll('[data-m3tool]').forEach(b => b.classList.toggle('on', b.dataset.m3tool === t));
+  $('m3ToolHint').textContent = M3_TOOL_HINT[t];
+  $('step1Box').hidden = t !== 'pathcrack';
+  $('step2Box').hidden = t === 'pathcrack';
+  $('hOpts').hidden = t !== 'horizon';
+  if (t === 'horizon' && !m3.hsel) { const rs = finalRows(state.secId); if (rs.length) m3.hsel = rs[0].g.id; }
+  renderFinal(); requestDraw();
+}
+function renderM3Sel() {
+  const el = $('m3Sel'), sec = curSec();
+  if (!sec) { el.innerHTML = ''; return; }
+  const k = mmPerPx(sec), mm = v => (v == null ? '—' : k ? fmt(v * k, 3) + ' mm' : fmt(v, 1) + ' px');
+  const T = m3Thick().bySec[sec.id] || { varves: [], unassigned: [] };
+  let html = '';
+  if (m3.stage === 'lower') html += '<div class="msg warn">Now trace the lower edge (Enter finishes, Esc cancels).</div>';
+  else if (m3.draft) html += '<div class="msg warn">Tracing… Enter, double-click or right-click finishes; Esc cancels.</div>';
+  if (m3.lineCrack) html += '<div class="msg warn">Click the two ends of the crack on the selected line.</div>';
+  if (m3.tool === 'horizon' && m3.hsel) {
+    const i = T.varves.findIndex(v => v.row.g.id === m3.hsel);
+    if (i >= 0) {
+      const ms = m3Sec(sec.id, false), h = ms && ms.horizons && ms.horizons[m3.hsel];
+      const desc = v => !v ? '' : v.status === 'ok'
+        ? `${v.positions.map(p => mm(p.net)).join(' · ')}<br>mean (area) ${mm(v.area)}`
+        : v.status === 'spans' ? 'top boundary in the previous section — not measurable with horizons'
+        : v.status === 'no overlap' ? 'the two horizons do not overlap sideways' : 'needs the horizons of both its boundaries';
+      const above = T.varves[i], below = T.varves[i + 1];
+      html += `<div class="msg" style="background:#f3f5f7"><b>Boundary at the base of varve ${above.row.varve}</b> · ${h ? (h.lower ? 'horizon with crack edges' : 'horizon traced') : 'no horizon yet'}` +
+        `<br><b>Varve ${above.row.varve}:</b> ${desc(above)}` + (below ? `<br><b>Varve ${below.row.varve}:</b> ${desc(below)}` : '') + '</div>';
+    }
+  }
+  if (m3.tool === 'line' && m3.lsel) {
+    const v = T.varves.find(x => x.lines.some(m => m.ln.id === m3.lsel)), m = (v ? v.lines : T.unassigned).find(x => x.ln.id === m3.lsel);
+    if (m) html += `<div class="msg" style="background:#f3f5f7">Line ${esc(m.ln.id)} · ${v ? 'varve ' + v.row.varve : 'not inside a varve of this section'}<br>${mm(m.raw)}${m.crack ? ' − crack ' + mm(m.crack) + ' = ' + mm(m.net) : ''}</div>`;
+  }
+  if (m3.tool === 'vcrack' && m3.vsel) html += `<div class="msg" style="background:#f3f5f7">Crack ${esc(m3.vsel)} inside a varve</div>`;
+  el.innerHTML = html;
+  $('m3LineCrack').hidden = m3.tool !== 'line';
+  $('m3LineCrack').disabled = !m3.lsel;
+  $('m3Nav').hidden = m3.tool !== 'horizon';
+  const measured = T.varves.filter(v => v.status === 'ok').length, lines = T.varves.reduce((a, v) => a + v.lines.length, 0);
+  $('m3Stats').innerHTML = [['Measured (horizons)', `${measured} of ${T.varves.length} varves`], ['Quick lines', String(lines) + (T.unassigned.length ? ` (+${T.unassigned.length} outside varves)` : '')]]
+    .map(([t, v]) => `<dt>${t}</dt><dd>${esc(v)}</dd>`).join('');
 }
 
 /* ---------------------------------------------------------------------
@@ -3086,7 +3498,8 @@ function selectSection(id) {
   state.secId = id;
   state.selB = null; state.selV = null; state.draft = null; state.scalePts = null;
   state.activeSeg = 0;
-  m3.pending = null; m3.sel = null;
+  m3.pending = null; m3.sel = null; m3.draft = null; m3.upper = null; m3.stage = null; m3.lineCrack = null; m3.lsel = null; m3.vsel = null;
+  if (m3.hsel && !(m3.chrono && m3.chrono.sections[id] && m3.chrono.sections[id].groups.some(g => g.id === m3.hsel))) m3.hsel = null;
   const sec = curSec();
   if (sec && state.counts) syncCountsSection(sec);
   const v = state.views.get(id);
@@ -3373,7 +3786,7 @@ function setTab(tab) {
   state.tab = tab;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   for (const t of ['project', 'setup', 'count', 'decide', 'final']) $('tab-' + t).hidden = t !== tab;
-  m3.pending = null;
+  m3.pending = null; m3.draft = null; m3.upper = null; m3.stage = null; m3.lineCrack = null;
   const sec = curSec();
   if (tab === 'count' && sec && state.counts) syncCountsSection(sec);
   refreshAll();
@@ -3505,6 +3918,17 @@ $('fOpen').addEventListener('click', openThick);
 $('fSave').addEventListener('click', saveThick);
 $('fVarvesCsv').addEventListener('click', exportVarvesCSV);
 $('fCracksCsv').addEventListener('click', exportCracksCSV);
+document.querySelectorAll('[data-m3tool]').forEach(b => b.addEventListener('click', () => setM3Tool(b.dataset.m3tool)));
+$('m3Prev').addEventListener('click', () => stepBoundary(-1));
+$('m3Next').addEventListener('click', () => stepBoundary(1));
+$('m3Del').addEventListener('click', deleteM3Selected);
+$('m3LineCrack').addEventListener('click', () => { if (m3.lsel) { m3.lineCrack = m3.lsel; m3.draft = []; renderM3Sel(); } });
+$('fThickCsv').addEventListener('click', exportThicknessCSV);
+$('m3Pos').addEventListener('change', e => {
+  const v = parseInt(e.target.value, 10);
+  if (!(v >= 1 && v <= 10)) { e.target.value = m3Settings().positions; return; }
+  ensureDoc(); m3.doc.settings = { ...(m3.doc.settings || {}), positions: v }; touchM3(); renderFinal(); requestDraw();
+});
 $('fDel').addEventListener('click', () => { const sec = curSec(); if (sec && m3.sel) deleteCrack(sec.id, m3.sel); });
 $('fDone').addEventListener('change', e => {
   const sec = curSec();
@@ -3554,6 +3978,7 @@ window.addEventListener('beforeunload', e => {
   if (state.projectDirty || state.countsDirty || m2.dirty || m3.dirty) { e.preventDefault(); e.returnValue = ''; }
 });
 
+$('m3ToolHint').textContent = M3_TOOL_HINT.pathcrack;
 refreshAll();
 </script>
 </body>
