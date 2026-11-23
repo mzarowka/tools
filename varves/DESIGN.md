@@ -1,6 +1,6 @@
 # Varve counter — design
 
-Status: **version 1.1 implemented** (project setup + Module 1 + image export) in [`index.html`](index.html). Modules 2 and 3 are designed but not built yet.
+Status: **version 2 implemented** (project setup, Module 1, Module 2 and image export) in [`index.html`](index.html). Module 3 is designed but not built yet.
 
 A browser tool for counting varves on scanned thin sections, building a varve
 chronology with uncertainty (Method C of Żarczyński, Tylmann & Goslar 2018,
@@ -214,7 +214,43 @@ boundary. This is done in two steps.
   reproduced and re-checked. Re-running the automatic step never overwrites
   them silently.
 
-### 6.3 Output
+### 6.3 Implementation notes (version 2)
+
+- **Input:** the counts files of all counters, loaded together. Module 2 shows
+  everyone's marks, so it is meant for after counting is finished.
+- **Counters per section:** `N` is the number of counters with boundaries in
+  that section, and `k = floor(N/2) + 1` is taken from it. The panel warns when
+  someone did not count a section.
+- **Local thickness:** for each counter, the median spacing of a window of
+  `window` consecutive spacings around the boundary. The tolerance of a match is
+  `tolerance_fraction × (T_group + T_boundary) / 2`. Without spacings (a single
+  boundary), the median spacing of the section is used.
+- **Alignment:** counters are added one at a time (in the project's people
+  order). Each step is a dynamic-programming alignment of the counter's sorted
+  boundaries to the current groups: a match costs `distance / tolerance`
+  (only within tolerance), leaving either side unmatched costs 0.5. So a match
+  is always preferred to two unmatched boundaries, and the order is preserved.
+- **Flags:** a group is flagged for review when not all counters agree, when its
+  spread exceeds 80 % of its tolerance, or when it is new (see below). The
+  reviewer marks groups as checked; Prev / Next steps through flagged groups
+  across sections.
+- **Edits:** *detach* takes one boundary out of its group; *merge*
+  (Shift+click) joins two groups. A merge is refused when both groups hold a
+  boundary of the same counter, or when the result would cross another
+  boundary of the same counter. Edited groups are marked `manual` and every
+  edit is logged (`edits`: op, time, person, ids).
+- **Re-run:** the automatic matching can be re-run (e.g. with another
+  tolerance). The reviewer chooses whether manually edited groups are kept.
+- **Changed counts:** when a chronology is opened with counts that changed
+  since the matching, matched boundaries that no longer exist are removed from
+  their groups and new boundaries are added as single groups flagged “new”.
+  The chronology must be opened with the counts of every counter it was built
+  from.
+- **Varve depths:** an accepted boundary closes the varve above it (3.4), so a
+  varve spans from the previous accepted boundary (or the top of the record)
+  to this one, across section joints.
+
+### 6.4 Output
 
 - The accepted boundaries define the **final varves**.
 - For each varve: number, section, top and bottom core depth, `n_agree`,
@@ -376,7 +412,7 @@ small, and keeps counters independent.
 | Export | One row per | Columns |
 |---|---|---|
 | `counts.csv` | click | `project, section, person, seq, boundary_id, segment, s_mm, core_depth_mm, x_px, y_px` |
-| `chronology.csv` | matched group | `project, section, group_id, varve_no, included, n_agree, n_counters, persons, core_depth_mm, top_mm, bottom_mm, unc_pos_cum, unc_neg_cum` |
+| `chronology.csv` | matched group | `project, section, group_id, varve_no, included, status, n_agree, n_counters, persons, s_mm, core_depth_mm, top_mm, bottom_mm, unc_pos_cum, unc_neg_cum, checked, manual` |
 | `varves.csv` | accepted varve (final) | `project, section, varve_no, top_depth_mm, bottom_depth_mm, unc_pos_cum, unc_neg_cum, crack_corrected` |
 | `cracks.csv` | crack | `project, section, crack_id, crosses_path, s_upper_mm, s_lower_mm, width_mm, core_depth_mm` |
 | `thickness.csv` | measurement | `project, section, varve_no, method, position_no, x_px, thickness_px, crack_px, thickness_mm, thickness_corr_mm, measured_by` |
@@ -454,7 +490,7 @@ written; every option below updates it.
    counts JSON/CSV. *(Done.)*
    **Version 1.1:** image export (section 11) for Setup and Module 1. Later
    modules add their overlays to the same export. *(Done.)*
-2. **Version 2:** Module 2 (matching, review, Method C, chronology CSV).
+2. **Version 2:** Module 2 (matching, review, Method C, chronology CSV). *(Done.)*
 3. **Version 3:** Module 3 step 1 (cracks on the path, final varve depths,
    varves and cracks CSV).
 4. **Version 4:** Module 3 step 2 (horizons, quick lines, thickness CSV).
