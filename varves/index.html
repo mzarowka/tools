@@ -104,6 +104,15 @@
   }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .toast.err { background: var(--err); }
+  .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .dlg { background: var(--panel); border-radius: 10px; width: min(1120px, 100%); max-height: 100%; overflow: auto; padding: 14px 16px; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+  .dlg h2 { margin: 0 0 10px; font-size: 16px; }
+  .dlg h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 2px; }
+  .dlg-body { display: grid; grid-template-columns: 270px 1fr; gap: 16px; }
+  .pv { background: var(--stage); border-radius: 6px; display: flex; align-items: center; justify-content: center; min-height: 260px; overflow: hidden; }
+  .pv canvas { display: block; }
+  #exInfo { white-space: pre-line; word-break: break-all; }
+  @media (max-width: 760px) { .dlg-body { grid-template-columns: 1fr; } }
   .busy { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); color: #fff; font-size: 15px; }
 </style>
 </head>
@@ -111,7 +120,7 @@
 
 <aside class="panel">
   <div class="panel-top">
-    <h1>Varve counter <small>v1 · setup + counting</small></h1>
+    <h1>Varve counter <small>v1.1 · setup + counting</small></h1>
     <label class="field"><span>I am</span><select id="personSel"></select></label>
     <div class="tabs" id="tabs">
       <button data-tab="project" class="active">Project</button>
@@ -235,6 +244,7 @@
         <tr><td>Drag · wheel</td><td>pan · zoom</td></tr>
         <tr><td><kbd>D</kbd> / <kbd>A</kbd></td><td>move along the path, deeper / back</td></tr>
         <tr><td><kbd>F</kbd> <kbd>R</kbd> <kbd>N</kbd></td><td>fit · rotate view · numbers</td></tr>
+        <tr><td><kbd>E</kbd></td><td>export an image with your marks</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>undo / redo</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>save</td></tr>
       </table>
@@ -255,11 +265,43 @@
     <label title="Brightness">☀<input id="fB" type="range" min="40" max="250" value="100"></label>
     <label title="Contrast">◐<input id="fC" type="range" min="40" max="300" value="100"></label>
     <button id="fReset" title="Reset brightness and contrast">↺</button>
+    <button id="zExport" title="Export the section with its marks as an image (E)">Export…</button>
   </div>
   <div class="status" id="status">&nbsp;</div>
   <div class="toast" id="toast"></div>
   <div class="busy" id="busy" hidden></div>
 </main>
+
+<div class="modal" id="exportDlg" hidden>
+  <div class="dlg" role="dialog" aria-label="Export image">
+    <h2>Export image</h2>
+    <div class="dlg-body">
+      <div>
+        <p class="hint" id="exWhat" style="margin-top:0"></p>
+        <label class="check"><input type="checkbox" id="exView"> Current view only</label>
+        <p class="hint">Off: the whole section at full resolution, in its original orientation.</p>
+        <h3>Layers</h3>
+        <label class="check"><input type="checkbox" id="exPath"> Path</label>
+        <label class="check"><input type="checkbox" id="exMarks"> Boundary marks</label>
+        <label class="check"><input type="checkbox" id="exNums"> Boundary numbers</label>
+        <label class="check"><input type="checkbox" id="exLabels"> Labels (segments, top / base depth)</label>
+        <h3>Extras</h3>
+        <label class="check"><input type="checkbox" id="exFilter"> Apply brightness / contrast</label>
+        <div class="check"><input type="checkbox" id="exBar"><label for="exBar">Scale bar</label>
+          <input type="number" id="exBarMm" min="0.05" step="any" style="width:70px"> mm</div>
+        <label class="check"><input type="checkbox" id="exCap"> Caption strip</label>
+        <label class="field mt"><span>Mark and label size: <b id="exSizeV"></b></span>
+          <input type="range" id="exSize" min="0.5" max="4" step="0.25"></label>
+        <p class="hint" id="exInfo"></p>
+      </div>
+      <div class="pv" id="pvBox"><canvas id="exPv"></canvas></div>
+    </div>
+    <div class="row mt" style="justify-content:flex-end">
+      <button id="exCancel">Cancel</button>
+      <button id="exSave" class="accent">Save PNG</button>
+    </div>
+  </div>
+</div>
 
 <script>
 'use strict';
@@ -269,7 +311,7 @@
    Design: DESIGN.md in this folder.
    ===================================================================== */
 
-const APP = 'varves-counter@1';
+const APP = 'varves-counter@1.1';
 const SCHEMA_PROJECT = 'varves/project@1';
 const SCHEMA_COUNTS = 'varves/counts@1';
 const MM_PER_IN = 25.4;
@@ -325,8 +367,8 @@ function toast(msg, kind = '') {
 }
 function busy(msg) { const b = $('busy'); b.hidden = !msg; b.textContent = msg || ''; }
 
-function download(text, name, type) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
+function download(data, name, type) {
+  const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type }));
   const a = document.createElement('a');
   a.href = url; a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
@@ -989,7 +1031,13 @@ function clearUndo() { for (const d of ['setup', 'counts']) { undo[d].length = 0
 /* ---------------------------------------------------------------------
    Canvas view
    --------------------------------------------------------------------- */
-const cv = $('cv'), ctx = cv.getContext('2d');
+const cv = $('cv'), screenCtx = cv.getContext('2d');
+/* Render context. The screen and the image export share the drawing code:
+   ctx is the target, R.u scales line widths and labels, R.w / R.h is the
+   drawn area (for culling), R.exp suppresses on-screen-only decorations. */
+let ctx = screenCtx;
+const LAYERS_ALL = { path: true, marks: true, nums: true, labels: true };
+let R = { u: 1, w: null, h: null, exp: false, layers: LAYERS_ALL };
 let Mc = new DOMMatrix(), Mi = new DOMMatrix();
 function updM() {
   Mc = new DOMMatrix().translate(view.tx, view.ty).rotate(view.rot * 90).scale(view.scale);
@@ -1062,25 +1110,29 @@ function strokePoly(pts, color, w, dash) {
   if (pts.length < 2) return;
   ctx.save();
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  ctx.setLineDash(dash || []);
+  ctx.setLineDash((dash || []).map(v => v * R.u));
   ctx.beginPath();
   pts.forEach((p, i) => { const q = toScreen(p); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
-  ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = w + 2.5; ctx.stroke();
-  ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = (w + 2.5) * R.u; ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = w * R.u; ctx.stroke();
   ctx.restore();
 }
 function label(text, x, y, color = '#fff', align = 'left') {
   ctx.save();
-  ctx.font = '600 12px system-ui, sans-serif';
+  ctx.font = `600 ${12 * R.u}px system-ui, sans-serif`;
+  // keep the label inside the drawn area
+  const tw = ctx.measureText(text).width, pad = 3 * R.u, bw = R.w ?? W();
+  const left = align === 'center' ? x - tw / 2 : align === 'right' ? x - tw : x;
+  x += clamp(left, pad, Math.max(pad, bw - tw - pad)) - left;
   ctx.textAlign = align; ctx.textBaseline = 'middle';
-  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(text, x, y);
+  ctx.lineWidth = 3 * R.u; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(text, x, y);
   ctx.fillStyle = color; ctx.fillText(text, x, y);
   ctx.restore();
 }
 function dot(p, r, fill, stroke = '#000') {
   const q = toScreen(p);
-  ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, Math.PI * 2);
-  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke();
+  ctx.beginPath(); ctx.arc(q[0], q[1], r * R.u, 0, Math.PI * 2);
+  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.5 * R.u; ctx.strokeStyle = stroke; ctx.stroke();
 }
 /* Unit normal in screen space at an image point with image direction dir. */
 function screenNormal(pt, dir) {
@@ -1103,47 +1155,59 @@ function draw() {
   $('zPct').textContent = img ? Math.round(view.scale * 100) + '%' : '—';
   if (!img) return;
   updM();
-  ctx.setTransform(dpr * Mc.a, dpr * Mc.b, dpr * Mc.c, dpr * Mc.d, dpr * Mc.e, dpr * Mc.f);
-  ctx.imageSmoothingEnabled = view.scale < 2;
+  drawImageLayer(img, new DOMMatrix().scale(dpr).multiply(Mc), view.scale * dpr < 2, true);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawOverlay(sec);
+  if (state.tab === 'setup') drawSetup(sec, img);
+}
+
+function drawImageLayer(img, m, smooth, filtered) {
+  ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
+  ctx.imageSmoothingEnabled = smooth;
   const f = state.filter;
-  ctx.filter = f.b !== 100 || f.c !== 100 ? `brightness(${f.b}%) contrast(${f.c}%)` : 'none';
+  ctx.filter = filtered && (f.b !== 100 || f.c !== 100) ? `brightness(${f.b}%) contrast(${f.c}%)` : 'none';
   ctx.drawImage(img.bitmap, 0, 0);
   ctx.filter = 'none';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  drawPath(sec);
-  if (state.tab === 'setup') drawSetup(sec, img);
-  if (state.tab === 'count') drawBoundaries(sec);
+}
+
+/* The marks of the current module: Setup = path, 1 Count = path + own boundaries. */
+function drawOverlay(sec) {
+  if (R.layers.path || R.layers.labels) drawPath(sec);
+  if (state.tab === 'count' && (R.layers.marks || R.layers.nums)) drawBoundaries(sec);
 }
 
 function drawPath(sec) {
   const segs = sec.segments;
   const counting = state.tab === 'count';
-  for (let i = 0; i < segs.length - 1; i++) {
-    const a = segs[i].points, b = segs[i + 1].points;
-    if (a.length && b.length) strokePoly([a[a.length - 1], b[0]], '#ffffff', 1, [4, 4]);
+  const L = R.layers, u = R.u;
+  if (L.path) {
+    for (let i = 0; i < segs.length - 1; i++) {
+      const a = segs[i].points, b = segs[i + 1].points;
+      if (a.length && b.length) strokePoly([a[a.length - 1], b[0]], '#ffffff', 1, [4, 4]);
+    }
   }
   segs.forEach((g, i) => {
-    const w = counting && i === state.activeSeg ? 2.5 : 1.5;
-    strokePoly(g.points, SEG_COLORS[i % 2], w);
-    if (state.tab === 'setup') {
+    const w = counting && !R.exp && i === state.activeSeg ? 2.5 : 1.5;
+    if (L.path) strokePoly(g.points, SEG_COLORS[i % 2], w);
+    if (state.tab === 'setup' && !R.exp) {
       g.points.forEach((p, vi) => {
         const sel = state.selV && state.selV.seg === i && state.selV.vi === vi;
         dot(p, sel ? 6 : 4, sel ? '#ff4fd8' : SEG_COLORS[i % 2]);
       });
     }
-    if (g.points.length >= 2) {
+    if (L.labels && g.points.length >= 2) {
       const { P, n } = screenNormal(g.points[0], pointAt(g, 0).dir);
-      label(String(i + 1), P[0] + n[0] * 14, P[1] + n[1] * 14, SEG_COLORS[i % 2], 'center');
+      label(String(i + 1), P[0] + n[0] * 14 * u, P[1] + n[1] * 14 * u, SEG_COLORS[i % 2], 'center');
     }
   });
   const first = segs[0], last = segs[segs.length - 1];
-  if (first && first.points.length >= 2 && last.points.length >= 2) {
+  if (L.labels && first && first.points.length >= 2 && last.points.length >= 2) {
     const a = sec.anchors;
     const s0 = screenNormal(first.points[0], pointAt(first, 0).dir);
-    label('top' + (a.top_mm != null ? ` ${fmt(a.top_mm / 10, 2)} cm` : ''), s0.P[0] - s0.n[0] * 16, s0.P[1] - s0.n[1] * 16, '#fff', 'center');
+    label('top' + (a.top_mm != null ? ` ${fmt(a.top_mm / 10, 2)} cm` : ''), s0.P[0] - s0.n[0] * 16 * u, s0.P[1] - s0.n[1] * 16 * u, '#fff', 'center');
     const lp = last.points[last.points.length - 1];
     const s1 = screenNormal(lp, pointAt(last, segLength(last)).dir);
-    label('base' + (a.bottom_mm != null ? ` ${fmt(a.bottom_mm / 10, 2)} cm` : ''), s1.P[0] - s1.n[0] * 16, s1.P[1] - s1.n[1] * 16, '#fff', 'center');
+    label('base' + (a.bottom_mm != null ? ` ${fmt(a.bottom_mm / 10, 2)} cm` : ''), s1.P[0] - s1.n[0] * 16 * u, s1.P[1] - s1.n[1] * 16 * u, '#fff', 'center');
   }
 }
 
@@ -1175,25 +1239,28 @@ function drawBoundaries(sec) {
   if (!cs || !sec.segments.length) return;
   const list = withS(sec, cs);
   let lastLab = null;
-  const w = W(), h = H();
+  const u = R.u, T = TICK * u, w = R.w ?? W(), h = R.h ?? H(), m = 50 * u;
+  const nums = R.exp ? R.layers.nums : state.showNums;
   list.forEach((it, i) => {
     const g = sec.segments[it.seg];
     if (!g) return;
     const { pt, dir } = pointAt(g, it.along);
     const { P, n } = screenNormal(pt, dir);
-    if (P[0] < -50 || P[1] < -50 || P[0] > w + 50 || P[1] > h + 50) return;
-    const sel = it.b.id === state.selB;
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(P[0] - n[0] * TICK, P[1] - n[1] * TICK);
-    ctx.lineTo(P[0] + n[0] * TICK, P[1] + n[1] * TICK);
-    ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.lineWidth = sel ? 6 : 4.5; ctx.stroke();
-    ctx.strokeStyle = sel ? '#39ff88' : '#ff3b30'; ctx.lineWidth = sel ? 3 : 2; ctx.stroke();
-    ctx.restore();
-    if (state.showNums) {
-      const lx = P[0] + n[0] * (TICK + 9), ly = P[1] + n[1] * (TICK + 9);
-      if (!lastLab || Math.hypot(lx - lastLab[0], ly - lastLab[1]) > 18 || sel) {
+    if (P[0] < -m || P[1] < -m || P[0] > w + m || P[1] > h + m) return;
+    const sel = !R.exp && it.b.id === state.selB;
+    if (R.layers.marks) {
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(P[0] - n[0] * T, P[1] - n[1] * T);
+      ctx.lineTo(P[0] + n[0] * T, P[1] + n[1] * T);
+      ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.lineWidth = (sel ? 6 : 4.5) * u; ctx.stroke();
+      ctx.strokeStyle = sel ? '#39ff88' : '#ff3b30'; ctx.lineWidth = (sel ? 3 : 2) * u; ctx.stroke();
+      ctx.restore();
+    }
+    if (nums) {
+      const lx = P[0] + n[0] * (T + 9 * u), ly = P[1] + n[1] * (T + 9 * u);
+      if (!lastLab || Math.hypot(lx - lastLab[0], ly - lastLab[1]) > 18 * u || sel) {
         label(String(i + 1), lx, ly, sel ? '#39ff88' : '#fff', 'center');
         lastLab = [lx, ly];
       }
@@ -1444,6 +1511,7 @@ function updateStatus() {
    Keyboard
    --------------------------------------------------------------------- */
 document.addEventListener('keydown', e => {
+  if (!$('exportDlg').hidden) { if (e.key === 'Escape') closeExport(); return; }
   if (e.target.closest && e.target.closest('input, select, textarea')) return;
   const k = e.key, mod = e.ctrlKey || e.metaKey;
   if (mod && k.toLowerCase() === 'z') { e.preventDefault(); undoRedo(e.shiftKey); return; }
@@ -1457,6 +1525,7 @@ document.addEventListener('keydown', e => {
     case '-': case '_': zoomAt(W() / 2, H() / 2, 0.8); break;
     case 'f': case 'F': case '0': fitView(); break;
     case 'r': case 'R': rotateView(); break;
+    case 'e': case 'E': openExport(); break;
     case 'n': case 'N': state.showNums = !state.showNums; $('showNums').checked = state.showNums; requestDraw(); break;
     case 'd': case 'D': panAlongPath(1); break;
     case 'a': case 'A': panAlongPath(-1); break;
@@ -1478,6 +1547,203 @@ document.addEventListener('keydown', e => {
   }
 });
 document.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; setCursor(); } });
+
+/* ---------------------------------------------------------------------
+   Image export (DESIGN.md §11): the section with whatever is marked now
+   --------------------------------------------------------------------- */
+const EXPORT_DEFAULTS = { view: false, path: true, marks: true, nums: true, labels: true, filter: true, bar: false, barMm: 1, caption: false, size: 1 };
+const exportOpts = { ...EXPORT_DEFAULTS };
+try { Object.assign(exportOpts, JSON.parse(store.get('varves:export') || '{}')); } catch { /* ignore */ }
+let exportResult = null;
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(u8) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+/* Write the resolution into a PNG (pHYs chunk), so the export keeps its scale. */
+async function pngWithDpi(blob, dpi) {
+  if (!(dpi > 0)) return blob;
+  const src = new Uint8Array(await blob.arrayBuffer());
+  const dv = new DataView(src.buffer);
+  const ppm = Math.round(dpi / 0.0254);
+  const chunk = new Uint8Array(21), cv2 = new DataView(chunk.buffer);
+  cv2.setUint32(0, 9); chunk.set([0x70, 0x48, 0x59, 0x73], 4);
+  cv2.setUint32(8, ppm); cv2.setUint32(12, ppm); chunk[16] = 1;
+  cv2.setUint32(17, crc32(chunk.subarray(4, 17)));
+  let o = 8, ihdrEnd = 33;
+  while (o + 12 <= src.length) {
+    const len = dv.getUint32(o), type = String.fromCharCode(src[o + 4], src[o + 5], src[o + 6], src[o + 7]);
+    if (type === 'IHDR') ihdrEnd = o + 12 + len;
+    if (type === 'pHYs') return new Blob([src.subarray(0, o), chunk, src.subarray(o + 12 + len)], { type: 'image/png' });
+    if (type === 'IDAT') break;
+    o += 12 + len;
+  }
+  return new Blob([src.subarray(0, ihdrEnd), chunk, src.subarray(ihdrEnd)], { type: 'image/png' });
+}
+
+async function saveBlob(blob, name) {
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'PNG image', accept: { 'image/png': ['.png'] } }] });
+      const w = await h.createWritable(); await w.write(blob); await w.close();
+      return 'saved';
+    } catch (e) {
+      if (e.name === 'AbortError') return null;
+      throw e;
+    }
+  }
+  download(blob, name, 'image/png');
+  return 'downloaded';
+}
+
+const exportModule = () => (state.tab === 'count' ? 'count' : 'setup');
+const safeName = s => String(s).replace(/[\\/:*?"<>|\s]+/g, '_');
+function stamp(d, sep) {
+  const z = v => String(v).padStart(2, '0');
+  return `${d.getFullYear()}${sep ? '-' : ''}${z(d.getMonth() + 1)}${sep ? '-' : ''}${z(d.getDate())}${sep ? ' ' : '-'}${z(d.getHours())}${sep ? ':' : ''}${z(d.getMinutes())}`;
+}
+
+/* Render the export into a new canvas. Full resolution: image pixels 1:1,
+   marks sized in mm on the section (o.size = 1 → labels about 0.35 mm high).
+   Current view: what is on screen, at device resolution. */
+function renderExport(o) {
+  const sec = curSec(), img = curImg();
+  const dpr = window.devicePixelRatio || 1;
+  const counting = exportModule() === 'count';
+  let w, h, imgM, ovM, ovU, U, dpiOut, smooth;
+  if (!o.view) {
+    w = img.width; h = img.height;
+    imgM = new DOMMatrix(); ovM = new DOMMatrix();
+    const ref = sec.dpi > 0 ? sec.dpi : 2400;
+    U = ovU = o.size * (0.35 / MM_PER_IN * ref) / 12;
+    dpiOut = sec.dpi > 0 ? sec.dpi : null;
+    smooth = false;
+  } else {
+    w = Math.round(W() * dpr); h = Math.round(H() * dpr);
+    imgM = new DOMMatrix().scale(dpr).multiply(Mc); ovM = Mc;
+    ovU = o.size; U = o.size * dpr;
+    dpiOut = sec.dpi > 0 ? sec.dpi * view.scale * dpr : null;
+    smooth = view.scale * dpr < 2;
+  }
+  const lineH = 12 * U * 1.6;
+  const capH = o.caption ? Math.round(lineH * 2 + 10 * U) : 0;
+  if (w > 32767 || h + capH > 32767 || w * (h + capH) > 2.5e8) throw new Error('The image is too large to export at full resolution. Use “Current view only”.');
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h + capH;
+  const saved = { ctx, R, Mc };
+  ctx = c.getContext('2d');
+  try {
+    ctx.fillStyle = '#2b2f33'; ctx.fillRect(0, 0, w, h);
+    drawImageLayer(img, imgM, smooth, o.filter);
+    if (o.view) ctx.setTransform(dpr, 0, 0, dpr, 0, 0); else ctx.setTransform(1, 0, 0, 1, 0, 0);
+    Mc = ovM;
+    R = { u: ovU, w: o.view ? W() : w, h: o.view ? H() : h, exp: true,
+          layers: { path: o.path, marks: counting && o.marks, nums: counting && o.nums, labels: o.labels } };
+    drawOverlay(sec);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    R = { ...R, u: U };
+    if (o.bar && dpiOut && o.barMm > 0) {
+      const len = o.barMm * dpiOut / MM_PER_IN, pad = 18 * U, y = h - pad, bh = 5 * U;
+      ctx.fillStyle = '#000'; ctx.fillRect(pad - 1.5 * U, y - bh - 1.5 * U, len + 3 * U, bh + 3 * U);
+      ctx.fillStyle = '#fff'; ctx.fillRect(pad, y - bh, len, bh);
+      label(`${o.barMm} mm`, pad + len / 2, y - bh - 11 * U, '#fff', 'center');
+    }
+    if (o.caption) {
+      const a = sec.anchors;
+      const n = counting && state.counts ? (countsSec(sec.id, false)?.boundaries.length || 0) : null;
+      const who = counting ? (state.counts?.person || state.person) : sec.drawn_by;
+      const l1 = [state.project.project, `section ${sec.id}`, counting ? 'Module 1 · counting' : 'Setup · path', who ? (counting ? 'counter ' : 'path by ') + who : null, stamp(new Date(), true)];
+      const l2 = [anchored(sec) ? `depth ${fmt(a.top_mm / 10, 2)}–${fmt(a.bottom_mm / 10, 2)} cm` : 'no depth anchors',
+        n != null ? `${n} boundaries` : null, sec.dpi ? `${sec.dpi} dpi scan` : 'no DPI', o.view ? 'current view' : 'whole section'];
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, h, w, capH);
+      ctx.fillStyle = '#1d2327'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      ctx.font = `600 ${12 * U}px system-ui, sans-serif`;
+      ctx.fillText(l1.filter(Boolean).join('  ·  '), 10 * U, h + 5 * U + lineH / 2);
+      ctx.font = `${12 * U}px system-ui, sans-serif`;
+      ctx.fillText(l2.filter(Boolean).join('  ·  '), 10 * U, h + 5 * U + lineH * 1.5);
+    }
+  } finally {
+    ctx = saved.ctx; R = saved.R; Mc = saved.Mc; Mi = Mc.inverse();
+  }
+  const person = counting ? (state.counts?.person || state.person) : null;
+  const name = safeName([state.project.project, sec.id, exportModule(), person, o.view ? 'view' : null, stamp(new Date(), false)].filter(Boolean).join('.')) + '.png';
+  return { canvas: c, dpi: dpiOut, name };
+}
+
+function readExportOpts() {
+  Object.assign(exportOpts, {
+    view: $('exView').checked, path: $('exPath').checked, marks: $('exMarks').checked, nums: $('exNums').checked,
+    labels: $('exLabels').checked, filter: $('exFilter').checked, bar: $('exBar').checked,
+    barMm: parseFloat($('exBarMm').value) || 1, caption: $('exCap').checked, size: parseFloat($('exSize').value) || 1,
+  });
+  store.set('varves:export', JSON.stringify(exportOpts));
+}
+function openExport() {
+  const sec = curSec();
+  if (!sec || !curImg()) { toast('Load a section image first.', 'err'); return; }
+  const o = exportOpts;
+  $('exView').checked = o.view; $('exPath').checked = o.path; $('exMarks').checked = o.marks; $('exNums').checked = o.nums;
+  $('exLabels').checked = o.labels; $('exFilter').checked = o.filter; $('exBar').checked = o.bar; $('exBarMm').value = o.barMm;
+  $('exCap').checked = o.caption; $('exSize').value = o.size;
+  const counting = exportModule() === 'count';
+  $('exMarks').disabled = $('exNums').disabled = !counting;
+  $('exWhat').textContent = counting
+    ? `Section ${sec.id} with ${state.counts ? 'your boundaries (' + state.counts.person + ') as marked now, including unsaved changes' : 'no counts open'}. Other counters' marks are never included.`
+    : `Section ${sec.id} with its path. Boundaries are exported from the “1 Count” tab.`;
+  $('exportDlg').hidden = false;
+  updateExportPreview();
+}
+function closeExport() { $('exportDlg').hidden = true; exportResult = null; }
+let exportTimer;
+function updateExportPreview() {
+  clearTimeout(exportTimer);
+  exportTimer = setTimeout(() => {
+    readExportOpts();
+    $('exSizeV').textContent = exportOpts.size + '×';
+    const pv = $('exPv'), box = $('pvBox');
+    try {
+      exportResult = renderExport(exportOpts);
+    } catch (err) {
+      exportResult = null;
+      $('exInfo').textContent = err.message;
+      pv.width = pv.height = 0;
+      return;
+    }
+    const c = exportResult.canvas, dpr = window.devicePixelRatio || 1;
+    const k = Math.min((box.clientWidth - 16) / c.width, Math.max(260, window.innerHeight * 0.62) / c.height, 1);
+    pv.style.width = Math.round(c.width * k) + 'px'; pv.style.height = Math.round(c.height * k) + 'px';
+    pv.width = Math.round(c.width * k * dpr); pv.height = Math.round(c.height * k * dpr);
+    const x = pv.getContext('2d');
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(c, 0, 0, pv.width, pv.height);
+    const sec = curSec();
+    $('exInfo').textContent = `${c.width} × ${c.height} px · ${exportResult.dpi ? round(exportResult.dpi, 1) + ' dpi' : 'no DPI'} · PNG` +
+      (exportOpts.bar && !exportResult.dpi ? ' · scale bar needs the DPI' : '') +
+      (!exportOpts.view && !(sec.dpi > 0) ? ' · mark size assumes 2400 dpi' : '') + `\n${exportResult.name}`;
+  }, 40);
+}
+async function saveExport() {
+  if (!exportResult) return;
+  const { canvas, dpi, name } = exportResult;
+  try {
+    busy('Writing PNG…');
+    const blob = await new Promise((res, rej) => canvas.toBlob(b => (b ? res(b) : rej(new Error('PNG encoding failed'))), 'image/png'));
+    const how = await saveBlob(await pngWithDpi(blob, dpi), name);
+    if (!how) return;
+    closeExport();
+    toast(how === 'saved' ? 'Image saved.' : `Image downloaded as ${name}.`);
+  } catch (err) {
+    toast('Export failed: ' + err.message, 'err');
+  } finally {
+    busy(null);
+  }
+}
 
 /* ---------------------------------------------------------------------
    Project actions
@@ -2071,6 +2337,11 @@ $('cCsv').addEventListener('click', exportCountsCSV);
 $('showNums').addEventListener('change', e => { state.showNums = e.target.checked; requestDraw(); });
 
 $('zFit').addEventListener('click', fitView);
+$('zExport').addEventListener('click', openExport);
+$('exCancel').addEventListener('click', closeExport);
+$('exSave').addEventListener('click', saveExport);
+$('exportDlg').addEventListener('click', e => { if (e.target.id === 'exportDlg') closeExport(); });
+$('exportDlg').addEventListener('input', e => { if (e.target.matches('input')) updateExportPreview(); });
 $('zIn').addEventListener('click', () => zoomAt(W() / 2, H() / 2, 1.25));
 $('zOut').addEventListener('click', () => zoomAt(W() / 2, H() / 2, 0.8));
 $('zRot').addEventListener('click', rotateView);

@@ -5,7 +5,7 @@ open it in a browser (Chrome or Edge recommended), nothing to install, works off
 and images never leave the computer.
 
 The full design (three modules, Method C, file formats) is in [DESIGN.md](DESIGN.md).
-**Version 1** contains the project setup and Module 1 (blind counting).
+**Version 1.1** contains the project setup, Module 1 (blind counting) and image export.
 
 ## Workflow
 
@@ -38,6 +38,17 @@ The full design (three modules, Method C, file formats) is in [DESIGN.md](DESIGN
    right-click (or Delete) to remove it. Only your own marks are shown.
 4. **Save** → `ZAB-12.P1.counts.json` (one file per counter, all sections).
    **Export CSV** → one row per boundary with its position and core depth.
+
+### Export an image
+
+**Export…** (top right, or <kbd>E</kbd>) saves the current section with whatever is marked at
+that moment, as a PNG with the scan DPI written into the file. A live preview shows the result.
+
+- Default: the **whole section at full resolution**; tick **Current view only** for exactly
+  what is on screen.
+- Layers (path, marks, numbers, labels), brightness/contrast, a scale bar, a caption strip
+  (project, section, counter, date, depths) and the mark size can be set.
+- In **1 Count** only your own boundaries are drawn; in **Setup** only the path.
 
 Unsaved work is also kept in the browser and offered back the next time the same file is
 opened, but the JSON files are the real record.

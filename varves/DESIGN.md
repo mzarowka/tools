@@ -1,6 +1,6 @@
 # Varve counter — design
 
-Status: **version 1 implemented** (project setup + Module 1) in [`index.html`](index.html). Modules 2 and 3 are designed but not built yet.
+Status: **version 1.1 implemented** (project setup + Module 1 + image export) in [`index.html`](index.html). Modules 2 and 3 are designed but not built yet.
 
 A browser tool for counting varves on scanned thin sections, building a varve
 chronology with uncertainty (Method C of Żarczyński, Tylmann & Goslar 2018,
@@ -419,12 +419,18 @@ Unsaved work is included, because the export shows the state at that moment.
 
 ### 11.2 Extent and resolution
 
-- **Current view**: exactly what is on screen (zoom, rotation, brightness and
-  contrast), at screen resolution. Quick, for notes and messages.
-- **Whole section, full resolution**: the full image at its native pixel size,
-  in its original orientation, with the overlay redrawn on top. For figures.
-  Line widths and label sizes are scaled to the image (a set size in mm on the
-  section, not in screen pixels), so they stay readable when printed.
+Export opens a dialog with a **live preview** of the file that will be
+written; every option below updates it.
+
+- **Whole section, full resolution (default)**: the full image at its native
+  pixel size, in its original orientation, with the overlay redrawn on top.
+  For figures. Line widths and label sizes are scaled to the image (a set size
+  in mm on the section, not in screen pixels: at size 1× labels are about
+  0.35 mm high), so they stay readable when printed. A size slider (0.5–4×)
+  adjusts them.
+- **Current view only (toggle)**: exactly what is on screen (zoom, rotation,
+  brightness and contrast), at screen resolution. Quick, for notes and
+  messages. Its DPI is the scan DPI × zoom.
 - Brightness and contrast are applied as set on screen (an option allows the
   untouched image).
 
@@ -447,7 +453,7 @@ Unsaved work is included, because the export shows the state at that moment.
    joint guide, anchors, gap/overlap check) + Module 1 (blind counting) +
    counts JSON/CSV. *(Done.)*
    **Version 1.1:** image export (section 11) for Setup and Module 1. Later
-   modules add their overlays to the same export.
+   modules add their overlays to the same export. *(Done.)*
 2. **Version 2:** Module 2 (matching, review, Method C, chronology CSV).
 3. **Version 3:** Module 3 step 1 (cracks on the path, final varve depths,
    varves and cracks CSV).
@@ -455,10 +461,10 @@ Unsaved work is included, because the export shows the state at that moment.
 
 ## 13. Open questions
 
-- Image export (11): should the default be the current view or the whole
-  section at full resolution?
+None at the moment.
 
 Decided: traced horizons are the Module 3 default, with quick lines as the
 fallback; no "uncertain" flag in Module 1; the Method C threshold is always a
-strict majority; cracks are marked only in Module 3; the tool exports varve
+strict majority; cracks are marked only in Module 3; image export defaults to
+the whole section at full resolution, with a toggle for the current view; the tool exports varve
 numbers only, with no calendar ages (floating chronologies are fine).
