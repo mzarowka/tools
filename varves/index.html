@@ -3193,7 +3193,37 @@ function renderExport(o) {
     smooth = view.scale * dpr < 2;
   }
   const lineH = 12 * U * 1.6;
-  const capH = o.caption ? Math.round(lineH * 2 + 10 * U) : 0;
+  // caption: parts joined with “·”, wrapped to the image width (narrow vertical sections)
+  let capLines = [];
+  if (o.caption) {
+    const a = sec.anchors;
+    const n = counting && state.counts ? (countsSec(sec.id, false)?.boundaries.length || 0) : null;
+    const ds = deciding && m2.chrono ? m2Result().perSec[sec.id] : null;
+    const fs = finals ? m3Result().perSec[sec.id] : null;
+    const who = counting ? (state.counts?.person || state.person) : deciding || finals ? state.person : sec.drawn_by;
+    const l1 = [state.project.project, `section ${sec.id}`, counting ? 'Module 1 · counting' : deciding ? 'Module 2 · Method C' : finals ? 'Module 3 · final depths' : 'Setup · path',
+      who ? (counting ? 'counter ' : deciding ? 'reviewed by ' : finals ? 'by ' : 'path by ') + who : null, stamp(new Date(), true)];
+    const l2 = [anchored(sec) ? `depth ${fmt(a.top_mm / 10, 2)}–${fmt(a.bottom_mm / 10, 2)} cm` : 'no depth anchors',
+      n != null ? `${n} boundaries` : null,
+      ds ? `${ds.varves} varves here (+${ds.up} / −${ds.un})` : null, ds ? `counters ${m2.counters.join(', ')}` : null,
+      fs ? `${fs.varves} varves here (+${fs.up} / −${fs.un})` : null,
+      fs ? `${fs.cracks} crack${fs.cracks === 1 ? '' : 's'}${fs.done ? '' : ' (cracks not complete)'}` : null,
+      sec.dpi ? `${sec.dpi} dpi scan` : 'no DPI', o.view ? 'current view' : 'whole section'];
+    const mctx = document.createElement('canvas').getContext('2d');
+    const wrap = (parts, bold) => {
+      mctx.font = `${bold ? '600 ' : ''}${12 * U}px system-ui, sans-serif`;
+      const lines = [];
+      let cur = '';
+      for (const part of parts.filter(Boolean)) {
+        const t = cur ? cur + '  ·  ' + part : part;
+        if (cur && mctx.measureText(t).width > w - 20 * U) { lines.push(cur); cur = part; } else cur = t;
+      }
+      if (cur) lines.push(cur);
+      return lines.map(t => ({ t, bold }));
+    };
+    capLines = [...wrap(l1, true), ...wrap(l2, false)];
+  }
+  const capH = capLines.length ? Math.round(lineH * capLines.length + 10 * U) : 0;
   if (w > 32767 || h + capH > 32767 || w * (h + capH) > 2.5e8) throw new Error('The image is too large to export at full resolution. Use “Current view only”.');
   const c = document.createElement('canvas');
   c.width = w; c.height = h + capH;
@@ -3215,24 +3245,13 @@ function renderExport(o) {
       ctx.fillStyle = '#fff'; ctx.fillRect(pad, y - bh, len, bh);
       label(`${o.barMm} mm`, pad + len / 2, y - bh - 11 * U, '#fff', 'center');
     }
-    if (o.caption) {
-      const a = sec.anchors;
-      const n = counting && state.counts ? (countsSec(sec.id, false)?.boundaries.length || 0) : null;
-      const ds = deciding && m2.chrono ? m2Result().perSec[sec.id] : null;
-      const fs = finals ? m3Result().perSec[sec.id] : null;
-      const who = counting ? (state.counts?.person || state.person) : deciding || finals ? state.person : sec.drawn_by;
-      const l1 = [state.project.project, `section ${sec.id}`, counting ? 'Module 1 · counting' : deciding ? 'Module 2 · Method C' : finals ? 'Module 3 · final depths' : 'Setup · path',
-        who ? (counting ? 'counter ' : deciding ? 'reviewed by ' : finals ? 'by ' : 'path by ') + who : null, stamp(new Date(), true)];
-      const l2 = [anchored(sec) ? `depth ${fmt(a.top_mm / 10, 2)}–${fmt(a.bottom_mm / 10, 2)} cm` : 'no depth anchors',
-        n != null ? `${n} boundaries` : null,
-        ds ? `${ds.varves} varves here (+${ds.up} / −${ds.un}) · counters ${m2.counters.join(', ')}` : null,
-        fs ? `${fs.varves} varves here (+${fs.up} / −${fs.un}) · ${fs.cracks} crack${fs.cracks === 1 ? '' : 's'}${fs.done ? '' : ' (cracks not complete)'}` : null, sec.dpi ? `${sec.dpi} dpi scan` : 'no DPI', o.view ? 'current view' : 'whole section'];
+    if (capLines.length) {
       ctx.fillStyle = '#fff'; ctx.fillRect(0, h, w, capH);
       ctx.fillStyle = '#1d2327'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-      ctx.font = `600 ${12 * U}px system-ui, sans-serif`;
-      ctx.fillText(l1.filter(Boolean).join('  ·  '), 10 * U, h + 5 * U + lineH / 2);
-      ctx.font = `${12 * U}px system-ui, sans-serif`;
-      ctx.fillText(l2.filter(Boolean).join('  ·  '), 10 * U, h + 5 * U + lineH * 1.5);
+      capLines.forEach((ln, i) => {
+        ctx.font = `${ln.bold ? '600 ' : ''}${12 * U}px system-ui, sans-serif`;
+        ctx.fillText(ln.t, 10 * U, h + 5 * U + lineH * (i + 0.5));
+      });
     }
   } finally {
     ctx = saved.ctx; R = saved.R; Mc = saved.Mc; Mi = Mc.inverse();

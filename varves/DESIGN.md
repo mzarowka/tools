@@ -3,8 +3,8 @@
 Status: **version 4 implemented** — all modules (project setup, Module 1, Module 2, Module 3 steps 1–2) and image export — in [`index.html`](index.html).
 
 A browser tool for counting varves on scanned thin sections, building a varve
-chronology with uncertainty (Method C of Żarczyński, Tylmann & Goslar 2018,
-*Quaternary Geochronology* 47: 107–119) and measuring varve thickness. It is a
+chronology with uncertainty (Method C: Bonk et al. 2015, *Geochronometria* 42: 159–171;
+Żarczyński, Tylmann & Goslar 2018, *Quaternary Geochronology* 47: 107–119; see References) and measuring varve thickness. It is a
 lightweight, open replacement for the CooRecorder part of that workflow.
 
 ## 1. Principles
@@ -65,6 +65,10 @@ Module 3  Final depths + thickness ─► cracks, final varve-depth table,
 
 ### 3.2 Paths and segments
 
+- Sections are **vertical**: the top of the thin section at the top of the image, depth
+  running down. The geometry itself does not depend on the orientation (the path is drawn
+  from the top of the section to its bottom), but the manual, the demo images and the
+  screenshots assume vertical sections.
 - Segments are ordered top → bottom and **joined into one length**:
   segment 1 covers `s = 0 … L1`, segment 2 covers `s = L1 … L1+L2`, and so on.
   The total length is `L`.
@@ -547,3 +551,14 @@ fallback; no "uncertain" flag in Module 1; the Method C threshold is always a
 strict majority; cracks are marked only in Module 3; image export defaults to
 the whole section at full resolution, with a toggle for the current view; the tool exports varve
 numbers only, with no calendar ages (floating chronologies are fine).
+
+## 14. References
+
+- Bonk, A., Tylmann, W., Goslar, T., Wacnik, A., Grosjean, M., 2015. Comparing varve counting
+  and ¹⁴C-AMS chronologies in the sediments of Lake Żabińskie, northeastern Poland:
+  implications for accurate ¹⁴C dating of lake sediments. *Geochronometria* 42, 159–171.
+  https://doi.org/10.1515/geochr-2015-0019
+- Żarczyński, M., Tylmann, W., Goslar, T., 2018. Multiple varve chronologies for the last
+  2000 years from the sediments of Lake Żabińskie (northeastern Poland) – Comparison of
+  strategies for varve counting and uncertainty estimations. *Quaternary Geochronology* 47,
+  107–119. https://doi.org/10.1016/j.quageo.2018.06.001
