@@ -4,7 +4,9 @@ Counting varves on scanned thin sections. One file, [`index.html`](index.html):
 open it in a browser (Chrome or Edge recommended), nothing to install, works offline,
 and images never leave the computer.
 
-The full design (three modules, Method C, file formats) is in [DESIGN.md](DESIGN.md).
+**Start here: [MANUAL.md](MANUAL.md)** — the complete guide from A to Z, including how to share a
+project with coauthors and why each choice was made. The technical design (modules, Method C,
+file formats) is in [DESIGN.md](DESIGN.md).
 **Version 4** contains everything in the design: project setup, Module 1 (blind counting), Module 2
 (Method C), Module 3 (cracks, final varve depths, thickness) and image export.
 
