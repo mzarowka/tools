@@ -8,6 +8,7 @@ push to main that changes MANUAL.md (.github/workflows/varves-manual.yml).
 Do not edit manual.html by hand.
 """
 
+import base64
 import html
 import re
 from pathlib import Path
@@ -40,6 +41,21 @@ def normalise_indent(text):
     return "\n".join(out) + "\n"
 
 
+MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+
+
+def embed_figures(body):
+    """Images become captioned figures with the picture embedded, so the page stays one file."""
+    def figure(m):
+        alt, src = html.unescape(m.group(1)), m.group(2)
+        f = HERE / src
+        data = base64.b64encode(f.read_bytes()).decode("ascii")
+        uri = f"data:{MIME[f.suffix.lower()]};base64,{data}"
+        return (f'<figure><img src="{uri}" alt="{html.escape(alt)}" loading="lazy">'
+                f"<figcaption>{html.escape(alt)}</figcaption></figure>")
+    return re.sub(r'<p><img alt="([^"]*)" src="([^"]+)" ?/?></p>', figure, body)
+
+
 def build():
     text = SRC.read_text(encoding="utf-8")
     source = normalise_indent(text)
@@ -48,6 +64,7 @@ def build():
         extension_configs={"toc": {"slugify": github_slug, "toc_depth": "2-2"}},
     )
     body = md.convert(source)
+    body = embed_figures(body)
     title = re.search(r"^# (.+)$", text, re.M).group(1)
     page = TEMPLATE.replace("{{title}}", html.escape(title)).replace("{{toc}}", md.toc).replace("{{body}}", body)
     OUT.write_text(page, encoding="utf-8")
@@ -107,6 +124,11 @@ TEMPLATE = """<!doctype html>
   blockquote { margin: 16px 0; padding: 10px 16px; background: var(--note-bg); border-left: 4px solid var(--note-line); border-radius: 0 8px 8px 0; }
   blockquote p { margin: 6px 0; }
   .table-wrap { overflow-x: auto; margin: 14px 0; }
+  figure { margin: 20px 0 24px; }
+  figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; cursor: zoom-in; }
+  figcaption { font-size: 14px; color: var(--muted); margin-top: 7px; max-width: 76ch; }
+  .lightbox { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; padding: 16px; cursor: zoom-out; }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; }
   table { border-collapse: collapse; font-size: 14.5px; min-width: 60%; }
   th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
   th { background: var(--code-bg); }
@@ -122,6 +144,7 @@ TEMPLATE = """<!doctype html>
   }
   @media print {
     nav.toc, .theme { display: none; }
+    figure { break-inside: avoid; }
     .layout { display: block; }
     main { padding: 0; }
     article { border: 0; padding: 0; }
@@ -147,6 +170,14 @@ TEMPLATE = """<!doctype html>
     const w = document.createElement('div'); w.className = 'table-wrap';
     t.parentNode.insertBefore(w, t); w.appendChild(t);
   });
+  // click a screenshot to see it larger
+  document.querySelectorAll('figure img').forEach(img => img.addEventListener('click', () => {
+    const box = document.createElement('div'); box.className = 'lightbox';
+    const big = document.createElement('img'); big.src = img.src; big.alt = img.alt;
+    box.appendChild(big); box.addEventListener('click', () => box.remove());
+    document.body.appendChild(box);
+  }));
+  addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.lightbox').forEach(b => b.remove()); });
   // theme toggle (remembered in this browser when possible)
   const root = document.documentElement;
   try { const t = localStorage.getItem('varves-manual-theme'); if (t) root.dataset.theme = t; } catch (e) {}
@@ -161,6 +192,7 @@ TEMPLATE = """<!doctype html>
   const mark = () => {
     let cur = heads[0];
     for (const h of heads) if (h.getBoundingClientRect().top < 120) cur = h;
+    if (innerHeight + scrollY >= document.documentElement.scrollHeight - 2) cur = heads[heads.length - 1];
     links.forEach(a => a.classList.toggle('active', cur && a.hash === '#' + cur.id));
   };
   addEventListener('scroll', mark, { passive: true }); mark();

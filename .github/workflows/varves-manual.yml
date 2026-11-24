@@ -1,4 +1,4 @@
-# Regenerates varves/manual.html whenever varves/MANUAL.md (or the builder) changes on main.
+# Regenerates varves/manual.html whenever varves/MANUAL.md, its screenshots or the builder change on main.
 name: Build varves manual
 
 on:
@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - varves/MANUAL.md
+      - varves/manual-img/**
       - varves/build_manual.py
   workflow_dispatch:
 

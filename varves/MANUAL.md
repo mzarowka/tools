@@ -22,6 +22,7 @@ the way it does. The technical design is in [DESIGN.md](DESIGN.md); a short over
 13. [Why it works this way](#13-why-it-works-this-way)
 14. [Troubleshooting](#14-troubleshooting)
 15. [Keyboard and mouse reference](#15-keyboard-and-mouse-reference)
+16. [References](#16-references)
 
 ---
 
@@ -30,8 +31,9 @@ the way it does. The technical design is in [DESIGN.md](DESIGN.md); a short over
 You count varve boundaries on scanned thin sections. Several people count the same sections
 independently. The tool then:
 
-- matches their boundaries and decides which ones are varves, following **Method C** of
-  Żarczyński, Tylmann & Goslar (2018, *Quaternary Geochronology* 47: 107–119);
+- matches their boundaries and decides which ones are varves, following **Method C**: three
+  independent counts, every varve decided by agreement (Bonk et al. 2015), compared with other
+  counting strategies by Żarczyński, Tylmann & Goslar (2018) — see [References](#16-references);
 - gives each varve a core depth in the composite profile, with cracks left out;
 - measures varve thickness across the width of the section.
 
@@ -63,7 +65,10 @@ computer, and the tool works offline.
   (“save in place”). Firefox and Safari work too, but every save becomes a download that you
   move into the project folder yourself.
 
-**Images.** One scan per thin section.
+**Images.** One scan per thin section, **vertical**: the top of the thin section at the top
+of the image, depth running down, laminae running across. If a scanner saved a section
+sideways or upside down, rotate the image file **before** adding it to a project (afterwards
+the file must not change, see 12.4). The tool's *rotate view* button only turns the display.
 
 - Formats: TIFF (uncompressed, LZW, Deflate or PackBits; 8 or 16 bit; strips or tiles),
   BMP, PNG, JPEG.
@@ -98,7 +103,8 @@ ZAB-12/
 
 - **Project.** One composite sediment profile, e.g. `ZAB-12`. Its name is part of every
   file name and is how files recognise each other.
-- **Section.** One thin section = one image. Sections are ordered from top to bottom.
+- **Section.** One thin section = one image, vertical (top of the section at the top of the
+  image). Sections are ordered from top to bottom.
 - **Path.** The counting line drawn on a section. It can be made of several **segments**
   (to step around a disturbance); they are joined into one length.
 - **s.** Position along the path, from its start.
@@ -135,6 +141,8 @@ ZAB-12/
      file's content), not the image itself.
 6. **Save** → `ZAB-12.project.json`.
 
+![The Project tab: people, two sections ordered top to bottom, and continuous depths. On the right, the first section with its two-segment path.](manual-img/01-project.jpg)
+
 > **Why images are not stored in the project:** a project file of a few kB is easy to send
 > and version; scans are hundreds of MB. The hash guarantees that everybody works on exactly
 > the same image, whatever the file is called on their computer.
@@ -159,7 +167,7 @@ Done once, by one person, in the **Setup** tab. Choose the section at the top of
 ### 5.2 The counting path
 
 1. **Draw segment.** Click points along the line on which you want varves to be counted,
-   **from top to bottom** of the section. Finish with **Enter**, a **double-click** or a
+   **from top to bottom** of the section, i.e. down the image. Finish with **Enter**, a **double-click** or a
    **right-click**. **Esc** cancels.
 2. Choose the line where lamination is clearest and most continuous. It does not have to be
    straight; add points to follow it.
@@ -174,6 +182,8 @@ Done once, by one person, in the **Setup** tab. Choose the section at the top of
      `L1 … L1+L2`, and so on.
 4. **Move / edit** mode: drag a point to move it; right-click or **Delete** removes it.
    The segment list on the left can delete whole segments.
+
+![Drawing the second segment. The pink dashed line across the section is the joint guide through the end of the first segment (blue); the new segment (pink, still being drawn) starts on it, on the same lamina, shifted sideways.](manual-img/02-setup-path.jpg)
 
 > **Why joints must be on the same lamina:** the joined path is one continuous axis of
 > depth. If the second segment started on a different lamina, the varves in between would be
@@ -233,6 +243,8 @@ Each counter, independently.
      thickness of the varve above it.
 6. **Save** often (**Ctrl+S**). One file holds all your sections.
 7. Optionally **Export CSV** for your own checks.
+
+![Counting: every red mark is a boundary of this counter, numbered down the path; the selected one (green) shows its depth and the thickness of the varve above it.](manual-img/03-count.jpg)
 
 **Rules for counters**
 
@@ -312,6 +324,8 @@ the tolerance), or when it is new (see 7.5).
 You correct the **matching** only. The **decision** always follows the majority rule and
 cannot be changed by hand.
 
+![Reviewing the matching: each counter has a track of coloured dots (P1 blue, P2 orange, P3 purple); green links are boundaries all three marked. The selected group (white) was marked by P1 and P3 only — a varve by majority, adding one year of negative uncertainty.](manual-img/04-decide.jpg)
+
 > **Why decisions cannot be overridden:** that is what keeps Method C objective. If a
 > reviewer could promote or reject boundaries, the result would again depend on one person.
 
@@ -348,6 +362,8 @@ cannot be changed by hand.
 
 The section panel shows the stretch factor with and without cracks.
 
+![A crack along boundary 14 marked where it crosses the path (pink outline). Its width is left out of the depths of all varves below it.](manual-img/05-final-cracks.jpg)
+
 > **Why cracks are handled only here:** all counters count on the same image, so a crack
 > shifts everyone's positions equally and does not affect matching. It does add its width to
 > the path length; leaving it out gives the true core depth of every varve below it.
@@ -372,6 +388,11 @@ Thickness is measured across the width of the section, not only on the path.
    - at **3 positions** (a setting, 1–10) spread across the width where both horizons
      exist: the **shortest distance** from the base horizon to the top horizon;
    - an **area mean**: the area between the two horizons divided by their shared width.
+
+   Three positions follow Bonk et al. (2015), who measured each varve along three parallel
+   lines (left, middle and right side of the thin section) and used their mean.
+
+![Horizons (white) traced across the section for a run of boundaries; the selected one is green. Cyan lines are the thickness measurements at three positions per varve. The crack along boundary 14 is traced as two edges (white upper, pink lower).](manual-img/06-final-horizons.jpg)
 
 > **Why horizons:** a line “drawn at an angle” is only a true thickness when it is
 > perpendicular to the lamina, which is a guess on bent laminae. The shortest distance
@@ -423,6 +444,8 @@ marked at that moment, including unsaved work. A preview shows the result.
 - What is drawn follows the tab: Setup = the path; 1 Count = **only your own** boundaries;
   2 Decide = all counters, matching and varve numbers; 3 Final = cracks, final varves,
   horizons and measurements.
+
+![The export dialog with its live preview: the whole vertical section at full resolution with all counters' marks, a scale bar and a caption strip.](manual-img/07-export.jpg)
 
 Images are for figures, notes and discussion. The JSON and CSV files remain the record.
 
@@ -600,3 +623,22 @@ a way to transfer work. Always save.
 | 1 Count | click = add boundary · drag mark = move · right-click mark = delete | **D / A** along the path · **N** numbers · **Delete** remove selected |
 | 2 Decide | click mark = select group · **Shift+click** = merge groups | **X** detach · **C** checked · **.** / **,** next / previous flag |
 | 3 Final | depends on the tool (cracks on path, horizons, quick lines, cracks in varves) · right-click = finish a trace or delete | **Enter** finish trace · **[ ]** previous / next boundary · **K** crack on line · **Delete** remove selected |
+
+---
+
+## 16. References
+
+- Bonk, A., Tylmann, W., Goslar, T., Wacnik, A., Grosjean, M., 2015. Comparing varve counting
+  and ¹⁴C-AMS chronologies in the sediments of Lake Żabińskie, northeastern Poland:
+  implications for accurate ¹⁴C dating of lake sediments. *Geochronometria* 42, 159–171.
+  <https://doi.org/10.1515/geochr-2015-0019>
+  — three independent counts with each varve decided by agreement (the procedure the tool
+  implements as Method C), and varve thickness as the mean of three parallel measurements.
+- Żarczyński, M., Tylmann, W., Goslar, T., 2018. Multiple varve chronologies for the last
+  2000 years from the sediments of Lake Żabińskie (northeastern Poland) – Comparison of
+  strategies for varve counting and uncertainty estimations. *Quaternary Geochronology* 47,
+  107–119. <https://doi.org/10.1016/j.quageo.2018.06.001>
+  — comparison of counting strategies (Methods A–D); Method C recommended as the most objective.
+
+The screenshots in this manual were made with synthetic thin-section images, not real data
+(see `dev/` in this folder).
