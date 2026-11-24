@@ -1,0 +1,935 @@
+<!doctype html>
+<!-- Generated from MANUAL.md by build_manual.py. Do not edit by hand. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Varve counter — manual</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --paper: #fff; --ink: #1d2327; --muted: #5f6b73; --line: #d9dee3;
+    --accent: #1f6feb; --code-bg: #f1f3f5; --note-bg: #eef4ff; --note-line: #9cbcf5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15181b; --paper: #1c2024; --ink: #e3e7ea; --muted: #9aa5ad; --line: #30363c;
+      --accent: #6ea8fe; --code-bg: #252a2f; --note-bg: #1d2a3d; --note-line: #3d5f94;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15181b; --paper: #1c2024; --ink: #e3e7ea; --muted: #9aa5ad; --line: #30363c;
+    --accent: #6ea8fe; --code-bg: #252a2f; --note-bg: #1d2a3d; --note-line: #3d5f94;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 16px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); max-width: 1240px; margin: 0 auto; }
+  nav.toc {
+    position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+    padding: 28px 18px 28px 22px; font-size: 14px; border-right: 1px solid var(--line);
+  }
+  nav.toc .brand { font-weight: 700; margin-bottom: 12px; }
+  nav.toc ul { list-style: none; margin: 0; padding: 0; }
+  nav.toc li { margin: 2px 0; }
+  nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 3px 8px; border-radius: 5px; }
+  nav.toc a:hover { color: var(--ink); background: var(--code-bg); }
+  nav.toc a.active { color: var(--accent); background: var(--note-bg); }
+  main { padding: 28px 48px 80px; min-width: 0; }
+  article { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 34px 44px; }
+  h1 { font-size: 30px; line-height: 1.25; margin: 0 0 14px; }
+  h2 { font-size: 22px; margin: 44px 0 12px; padding-top: 18px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin: 28px 0 8px; }
+  a { color: var(--accent); }
+  hr { display: none; }
+  p, li { max-width: 76ch; }
+  code { font: 0.88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; line-height: 1.45; }
+  pre code { background: none; padding: 0; font-size: 13.5px; }
+  blockquote { margin: 16px 0; padding: 10px 16px; background: var(--note-bg); border-left: 4px solid var(--note-line); border-radius: 0 8px 8px 0; }
+  blockquote p { margin: 6px 0; }
+  .table-wrap { overflow-x: auto; margin: 14px 0; }
+  table { border-collapse: collapse; font-size: 14.5px; min-width: 60%; }
+  th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); }
+  .theme { position: fixed; right: 14px; top: 12px; font: inherit; font-size: 13px; padding: 4px 10px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); cursor: pointer; }
+  @media (max-width: 900px) {
+    .layout { display: block; }
+    nav.toc { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 16px; }
+    main { padding: 16px; }
+    .theme { position: absolute; }
+    article { padding: 20px 16px; border-radius: 8px; }
+    h1 { font-size: 24px; }
+  }
+  @media print {
+    nav.toc, .theme { display: none; }
+    .layout { display: block; }
+    main { padding: 0; }
+    article { border: 0; padding: 0; }
+    body { background: #fff; color: #000; }
+    h2 { break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+<button class="theme" id="theme" title="Switch light / dark">Light / dark</button>
+<div class="layout">
+  <nav class="toc" aria-label="Contents">
+    <div class="brand">Varve counter · manual</div>
+    <div class="toc">
+<ul>
+<li><a href="#1-what-the-tool-does">1. What the tool does</a></li>
+<li><a href="#2-before-you-start">2. Before you start</a></li>
+<li><a href="#3-key-ideas-in-five-minutes">3. Key ideas in five minutes</a></li>
+<li><a href="#4-step-a--create-the-project">4. Step A — Create the project</a></li>
+<li><a href="#5-step-b--set-up-each-section">5. Step B — Set up each section</a></li>
+<li><a href="#6-step-c--count-module-1">6. Step C — Count (Module 1)</a></li>
+<li><a href="#7-step-d--decide-the-varves-module-2-method-c">7. Step D — Decide the varves (Module 2, Method C)</a></li>
+<li><a href="#8-step-e--final-depths-module-3-step-1">8. Step E — Final depths (Module 3, step 1)</a></li>
+<li><a href="#9-step-f--varve-thickness-module-3-step-2">9. Step F — Varve thickness (Module 3, step 2)</a></li>
+<li><a href="#10-exporting-images">10. Exporting images</a></li>
+<li><a href="#11-the-output-files-and-how-to-use-them">11. The output files and how to use them</a></li>
+<li><a href="#12-working-with-coauthors-sharing-and-portability">12. Working with coauthors: sharing and portability</a></li>
+<li><a href="#13-why-it-works-this-way">13. Why it works this way</a></li>
+<li><a href="#14-troubleshooting">14. Troubleshooting</a></li>
+<li><a href="#15-keyboard-and-mouse-reference">15. Keyboard and mouse reference</a></li>
+</ul>
+</div>
+
+  </nav>
+  <main><article>
+<h1 id="varve-counter--manual">Varve counter — manual</h1>
+<p>A complete guide from an empty folder to a varve chronology with uncertainties, final depths
+and varve thicknesses. It covers how to work together with coauthors and why the tool works
+the way it does. The technical design is in <a href="DESIGN.md">DESIGN.md</a>; a short overview is in
+<a href="README.md">README.md</a>.</p>
+<p><strong>Contents</strong></p>
+<ol>
+<li><a href="#1-what-the-tool-does">What the tool does</a></li>
+<li><a href="#2-before-you-start">Before you start</a></li>
+<li><a href="#3-key-ideas-in-five-minutes">Key ideas in five minutes</a></li>
+<li><a href="#4-step-a--create-the-project">Step A — Create the project</a></li>
+<li><a href="#5-step-b--set-up-each-section">Step B — Set up each section</a></li>
+<li><a href="#6-step-c--count-module-1">Step C — Count (Module 1)</a></li>
+<li><a href="#7-step-d--decide-the-varves-module-2-method-c">Step D — Decide the varves (Module 2, Method C)</a></li>
+<li><a href="#8-step-e--final-depths-module-3-step-1">Step E — Final depths (Module 3, step 1)</a></li>
+<li><a href="#9-step-f--varve-thickness-module-3-step-2">Step F — Varve thickness (Module 3, step 2)</a></li>
+<li><a href="#10-exporting-images">Exporting images</a></li>
+<li><a href="#11-the-output-files-and-how-to-use-them">The output files and how to use them</a></li>
+<li><a href="#12-working-with-coauthors-sharing-and-portability">Working with coauthors: sharing and portability</a></li>
+<li><a href="#13-why-it-works-this-way">Why it works this way</a></li>
+<li><a href="#14-troubleshooting">Troubleshooting</a></li>
+<li><a href="#15-keyboard-and-mouse-reference">Keyboard and mouse reference</a></li>
+</ol>
+<hr />
+<h2 id="1-what-the-tool-does">1. What the tool does</h2>
+<p>You count varve boundaries on scanned thin sections. Several people count the same sections
+independently. The tool then:</p>
+<ul>
+<li>matches their boundaries and decides which ones are varves, following <strong>Method C</strong> of
+    Żarczyński, Tylmann &amp; Goslar (2018, <em>Quaternary Geochronology</em> 47: 107–119);</li>
+<li>gives each varve a core depth in the composite profile, with cracks left out;</li>
+<li>measures varve thickness across the width of the section.</li>
+</ul>
+<pre><code> Step A  Project       people, sections (one image per thin section)
+ Step B  Setup         DPI, counting path, core depths            → project file
+ Step C  1 Count       each counter, blind                        → one counts file per person
+ Step D  2 Decide      match counts, majority rule, review        → chronology file
+ Step E  3 Final (1)   cracks on the path → final varve depths    → Module 3 file, varves.csv
+ Step F  3 Final (2)   horizons → varve thickness                 → thickness.csv
+</code></pre>
+<p>Typical roles:</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Does</th>
+<th>Writes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Project lead</strong> (one person)</td>
+<td>Steps A, B, D, E, F</td>
+<td>project file, chronology, Module 3 file</td>
+</tr>
+<tr>
+<td><strong>Counter</strong> (usually three people, the lead can be one of them)</td>
+<td>Step C</td>
+<td>own counts file</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-before-you-start">2. Before you start</h2>
+<p><strong>Software.</strong> Only a web browser. The whole tool is one file, <code>index.html</code>; double-click it
+and it opens. Nothing is installed and nothing is uploaded: images and data stay on your
+computer, and the tool works offline.</p>
+<ul>
+<li><strong>Chrome or Edge are recommended.</strong> They can save a file back to where it came from
+    (“save in place”). Firefox and Safari work too, but every save becomes a download that you
+    move into the project folder yourself.</li>
+</ul>
+<p><strong>Images.</strong> One scan per thin section.</p>
+<ul>
+<li>Formats: TIFF (uncompressed, LZW, Deflate or PackBits; 8 or 16 bit; strips or tiles),
+    BMP, PNG, JPEG.</li>
+<li>Not supported: JPEG-compressed TIFF, BigTIFF, floating-point TIFF. Re-save such files as
+    uncompressed or LZW TIFF <strong>before</strong> you start (see 12.4 — images must not change later).</li>
+<li>Size: a 10 cm thin section at 2400 DPI (about 9,500 × 1,900 px) is easy. Very large
+    stitched scans (over about 20,000 px on a side) may exceed browser limits.</li>
+<li>Scan resolution (DPI) is read from the file. Write it down from the scanner settings
+    anyway: scanners often store a wrong or default value.</li>
+</ul>
+<p><strong>What you need to know about the core.</strong> For each thin section, the core depth (in the
+composite profile) where your counting line starts and ends. Section 5.3 explains how to
+choose these.</p>
+<p><strong>Suggested folder.</strong> Put everything of one profile in one folder (details in 12.1):</p>
+<pre><code>ZAB-12/
+  index.html                     ← the tool (a copy, so everyone uses the same version)
+  manual.html                    ← this manual (opened by the tool's “Manual” link)
+  images/                        ← the thin-section scans, never edited
+  ZAB-12.project.json
+  counts/                        ← one file per counter
+  ZAB-12.chronology.json
+  ZAB-12.thickness.json
+  exports/                       ← CSV and PNG exports
+</code></pre>
+<hr />
+<h2 id="3-key-ideas-in-five-minutes">3. Key ideas in five minutes</h2>
+<ul>
+<li><strong>Project.</strong> One composite sediment profile, e.g. <code>ZAB-12</code>. Its name is part of every
+    file name and is how files recognise each other.</li>
+<li><strong>Section.</strong> One thin section = one image. Sections are ordered from top to bottom.</li>
+<li><strong>Path.</strong> The counting line drawn on a section. It can be made of several <strong>segments</strong>
+    (to step around a disturbance); they are joined into one length.</li>
+<li><strong>s.</strong> Position along the path, from its start.</li>
+<li><strong>Depth anchors.</strong> The core depth of the path start (top) and end (base). Every point on
+    the path gets a core depth by linear interpolation between them; this corrects shrinkage
+    of the thin section and small correlation errors.</li>
+<li><strong>Boundary.</strong> One click = one varve boundary. A boundary is the <strong>base of the varve above
+    it</strong>, i.e. the point where that varve year begins (for example, the start of the spring
+    calcite lamina on top of the previous winter layer).</li>
+<li><strong>Counting goes from the top down.</strong> Varve 1 is the youngest varve, at the top of the
+    record (the year of coring, possibly incomplete). The partial varve below the last
+    boundary at the base of the record is not counted.</li>
+<li><strong>Varve numbers only.</strong> The tool never assigns calendar years. Anchoring to the coring
+    year, a tephra or radiocarbon is done later (e.g. in R). Floating chronologies need no
+    special treatment.</li>
+<li><strong>People</strong> have short ids (<code>P1</code>, <code>MZ</code>, …) that appear in all files and exports.</li>
+</ul>
+<hr />
+<h2 id="4-step-a--create-the-project">4. Step A — Create the project</h2>
+<ol>
+<li>Open <code>index.html</code>.</li>
+<li><strong>Project → New</strong>, enter the profile name (e.g. <code>ZAB-12</code>).<ul>
+<li>Choose it carefully: counts and chronology files check that they belong to this exact
+    name. Renaming later separates the project from files made with the old name.</li>
+</ul>
+</li>
+<li><strong>People → + Add person</strong> for everyone who will count or work on the project. Give short,
+    stable ids; names are optional.<ul>
+<li>Ids end up in file names and exports. Use letters, digits, <code>-</code> or <code>_</code>.</li>
+</ul>
+</li>
+<li><strong>I am</strong> (top of the panel): choose yourself. The browser remembers this per project.</li>
+<li><strong>+ Add sections…</strong>: choose all thin-section images at once.<ul>
+<li>Each image becomes a section named after the file (you can rename it in Setup).</li>
+<li>Order them <strong>top to bottom</strong> with ↑ ↓.</li>
+<li>The project stores each image's name and its <strong>SHA-256 hash</strong> (a fingerprint of the
+    file's content), not the image itself.</li>
+</ul>
+</li>
+<li><strong>Save</strong> → <code>ZAB-12.project.json</code>.</li>
+</ol>
+<blockquote>
+<p><strong>Why images are not stored in the project:</strong> a project file of a few kB is easy to send
+and version; scans are hundreds of MB. The hash guarantees that everybody works on exactly
+the same image, whatever the file is called on their computer.</p>
+</blockquote>
+<hr />
+<h2 id="5-step-b--set-up-each-section">5. Step B — Set up each section</h2>
+<p>Done once, by one person, in the <strong>Setup</strong> tab. Choose the section at the top of the tab.</p>
+<h3 id="51-resolution-dpi">5.1 Resolution (DPI)</h3>
+<ul>
+<li><strong>DPI</strong> shows the value read from the image and its source (<em>image header</em>).</li>
+<li>If it is wrong or missing, type the correct value (<em>entered by hand</em>).</li>
+<li>Or <strong>Calibrate from a scale bar…</strong>: click both ends of a scale bar visible on the scan,
+    type its length in mm, <strong>Apply</strong> (<em>scale bar</em>).</li>
+</ul>
+<blockquote>
+<p><strong>Why it matters:</strong> DPI converts pixels to millimetres for thicknesses and positions. Core
+depths come from the depth anchors (5.3), so a slightly wrong DPI does not shift depths,
+but it does change thicknesses. The <strong>stretch factor</strong> (5.3) is your check.</p>
+</blockquote>
+<h3 id="52-the-counting-path">5.2 The counting path</h3>
+<ol>
+<li><strong>Draw segment.</strong> Click points along the line on which you want varves to be counted,
+    <strong>from top to bottom</strong> of the section. Finish with <strong>Enter</strong>, a <strong>double-click</strong> or a
+    <strong>right-click</strong>. <strong>Esc</strong> cancels.</li>
+<li>Choose the line where lamination is clearest and most continuous. It does not have to be
+    straight; add points to follow it.</li>
+<li><strong>More segments</strong> (to step around a disturbance, a burrow, a bad patch): draw the next
+    segment the same way. It must start <strong>on the same lamina</strong> where the previous segment
+    ended, only shifted sideways.<ul>
+<li>A pink <strong>joint guide</strong> runs through the end of the previous segment, across the path,
+    roughly along that lamina. The first click of the new segment snaps onto it. Check that
+    the guide really follows the lamina; hold <strong>Shift</strong> while clicking to place the start
+    freely.</li>
+<li>Segments are joined into one length: the first segment covers <code>s = 0 … L1</code>, the second
+    <code>L1 … L1+L2</code>, and so on.</li>
+</ul>
+</li>
+<li><strong>Move / edit</strong> mode: drag a point to move it; right-click or <strong>Delete</strong> removes it.
+    The segment list on the left can delete whole segments.</li>
+</ol>
+<blockquote>
+<p><strong>Why joints must be on the same lamina:</strong> the joined path is one continuous axis of
+depth. If the second segment started on a different lamina, the varves in between would be
+skipped or counted twice.</p>
+<p><strong>Ownership rule:</strong> a segment owns its start but not its end. A boundary exactly on a joint
+is counted once, in the following segment.</p>
+</blockquote>
+<h3 id="53-core-depth-of-the-path">5.3 Core depth of the path</h3>
+<p>Enter <strong>Path start (top)</strong> and <strong>Path end (base)</strong> in cm of composite core depth.</p>
+<ul>
+<li>Usually you determine these from the correlation of the thin section with the core (e.g.
+    marker layers, the position of the thin-section box in the core).</li>
+<li><strong>The path end of a section must equal the path start of the next one.</strong> When you enter a
+    base depth, the next section's empty top depth is filled with the same value. The Project
+    tab shows a green message when depths are continuous, or the gap/overlap that must be
+    fixed.</li>
+<li>Because thin sections overlap (typically by about 2 cm), choose the joint so that the
+    path of section <em>n</em> ends exactly on the lamina where the path of section <em>n+1</em> starts.
+    Then no varve is counted twice or skipped.</li>
+</ul>
+<p>The panel shows the <strong>stretch factor</strong> = depth interval ÷ path length in mm. Values near 1
+are normal (slightly above 1 when the thin section shrank). Values far from 1 (the tool warns
+beyond ±15 %) usually mean a wrong DPI or wrong depths.</p>
+<blockquote>
+<p><strong>Why linear interpolation between two anchors:</strong> it spreads the difference between the
+thin section and the core evenly over the section, so errors do not accumulate from one
+section to the next. Cracks are corrected separately and later (Step E), because they are
+local.</p>
+</blockquote>
+<p><strong>Save the project</strong> when all sections are set up. <strong>Freeze the setup before counting</strong>
+(see 12.5): changing a path afterwards is possible, but counters' boundaries then have to be
+re-attached to the new path.</p>
+<hr />
+<h2 id="6-step-c--count-module-1">6. Step C — Count (Module 1)</h2>
+<p>Each counter, independently.</p>
+<ol>
+<li>Open <code>index.html</code>, <strong>Project → Open…</strong> the project file.</li>
+<li><strong>Load images…</strong>: select the scans (all at once is fine). They are recognised by their
+    content; file names do not matter.</li>
+<li><strong>I am</strong>: choose yourself.</li>
+<li>Tab <strong>1 Count</strong> → <strong>New count</strong> (first time) or <strong>Open…</strong> your counts file
+    (<code>ZAB-12.P2.counts.json</code>).</li>
+<li>Choose a section and click every varve boundary you see.<ul>
+<li>Clicks snap to the path. You may click beside the path on the same boundary; it is
+    projected onto the path.</li>
+<li><strong>Drag</strong> a mark to move it; <strong>right-click</strong> or <strong>Delete</strong> removes it; <strong>Ctrl+Z / Ctrl+Y</strong>
+    undo / redo.</li>
+<li>A click beyond the path end is refused: that boundary belongs to the next section.</li>
+<li>Navigation: wheel = zoom, drag = pan, <strong>D / A</strong> = move along the path deeper / back,
+    <strong>F</strong> = fit, <strong>R</strong> = rotate the view, brightness and contrast at the top right.</li>
+<li>The panel shows the number of boundaries, the selected boundary's core depth and the
+    thickness of the varve above it.</li>
+</ul>
+</li>
+<li><strong>Save</strong> often (<strong>Ctrl+S</strong>). One file holds all your sections.</li>
+<li>Optionally <strong>Export CSV</strong> for your own checks.</li>
+</ol>
+<p><strong>Rules for counters</strong></p>
+<ul>
+<li><strong>Count blind.</strong> Do not look at other people's counts until all counting is finished; the
+    tool only ever shows your own marks in this tab.</li>
+<li><strong>Mark every boundary you see, once.</strong> There is no “uncertain” flag on purpose: Method C
+    estimates uncertainty from disagreement between counters. If you are unsure, decide for
+    yourself; that is exactly the information the method needs.</li>
+<li>Use the same criterion for a boundary throughout (agreed beforehand, e.g. from the
+    microfacies description).</li>
+</ul>
+<blockquote>
+<p><strong>Why blind:</strong> if counters see each other's marks, their counts are no longer independent
+and agreement between them no longer measures uncertainty.</p>
+</blockquote>
+<hr />
+<h2 id="7-step-d--decide-the-varves-module-2-method-c">7. Step D — Decide the varves (Module 2, Method C)</h2>
+<p>Done by the project lead, <strong>after all counts are finished</strong> (this tab shows everyone's marks).</p>
+<h3 id="71-load-and-match">7.1 Load and match</h3>
+<ol>
+<li>Open the project and images. Tab <strong>2 Decide</strong>.</li>
+<li><strong>Load counts files…</strong>: select all counters' files at once. Each counter gets a colour.</li>
+<li>Check the settings (defaults are usually fine):<ul>
+<li><strong>Tolerance × local varve thickness</strong> (0.5): two marks of different counters can be the
+    same boundary only if they are closer than this fraction of the local varve thickness.</li>
+<li><strong>Window</strong> (10): how many neighbouring boundaries the local thickness is computed from
+    (running median of the spacing).</li>
+</ul>
+</li>
+<li><strong>Match automatically.</strong></li>
+</ol>
+<blockquote>
+<p><strong>Why a tolerance relative to varve thickness:</strong> varve thickness changes along the profile
+(e.g. from about 2 mm to over 6 mm in Lake Żabińskie). A fixed distance would be too strict
+for thick varves and too loose for thin ones. At 0.5, a mark is never matched to a boundary
+that is closer to its neighbour.</p>
+<p><strong>Why the order is preserved:</strong> boundaries are matched by an alignment that never lets two
+matched groups cross; this mirrors how a person would pair counts side by side.</p>
+</blockquote>
+<h3 id="72-the-decision-rule">7.2 The decision rule</h3>
+<p>For each matched group, <strong>n of N</strong> counters marked it (N = counters who counted that section;
+the panel warns when someone did not):</p>
+<table>
+<thead>
+<tr>
+<th>Agreement</th>
+<th>Decision</th>
+<th>Uncertainty</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>all counters</td>
+<td>varve</td>
+<td>—</td>
+</tr>
+<tr>
+<td>majority (more than half)</td>
+<td>varve</td>
+<td>negative +1</td>
+</tr>
+<tr>
+<td>minority (half or fewer)</td>
+<td>not a varve</td>
+<td>positive +1</td>
+</tr>
+</tbody>
+</table>
+<p>Positive and negative uncertainties are summed separately from the top of the record down,
+giving ranges such as <code>2028 +34/−53</code>. With three counters the majority is 2; with four, 3;
+a 2–2 tie is not a majority.</p>
+<blockquote>
+<p><strong>Why this rule:</strong> it is Method C of the paper. Every boundary is judged on its own, there
+is no master count, no half-years and no arbitrary decision. Asymmetric uncertainty is a
+real result: it tells you whether the chronology is more likely too short or too long.</p>
+</blockquote>
+<h3 id="73-review">7.3 Review</h3>
+<p>On the image every counter has a track (coloured dots) and matched marks are linked:
+<strong>green</strong> = all agree, <strong>yellow</strong> = majority, <strong>red ring</strong> = rejected. Varve numbers are on
+one side; a <strong>?</strong> marks groups that need review.</p>
+<p>A group is flagged when not all counters agree, when its marks are far apart (over 80 % of
+the tolerance), or when it is new (see 7.5).</p>
+<ul>
+<li><strong>Next ▸ / ◂ Prev</strong> (keys <strong>.</strong> and <strong>,</strong>) jump from flag to flag across sections.</li>
+<li>Click a mark to select its group; the panel shows who marked it, where, and the decision.</li>
+<li><strong>Detach (X):</strong> takes the selected mark out of its group (it was matched wrongly).</li>
+<li><strong>Shift+click</strong> a mark of another group: merges the two groups. Refused when both contain a
+    mark of the same counter, or when the result would put one counter's boundaries out of
+    order.</li>
+<li><strong>Checked (C):</strong> marks the group as reviewed; with <em>only unchecked</em> ticked, Next skips it.</li>
+<li><strong>Ctrl+Z / Ctrl+Y</strong> undo / redo.</li>
+</ul>
+<p>You correct the <strong>matching</strong> only. The <strong>decision</strong> always follows the majority rule and
+cannot be changed by hand.</p>
+<blockquote>
+<p><strong>Why decisions cannot be overridden:</strong> that is what keeps Method C objective. If a
+reviewer could promote or reject boundaries, the result would again depend on one person.</p>
+</blockquote>
+<h3 id="74-save-and-export">7.4 Save and export</h3>
+<ul>
+<li><strong>Save</strong> → <code>ZAB-12.chronology.json</code>: the matching, every manual edit (with who and when),
+    the settings, and the resolved positions needed by Module 3.</li>
+<li><strong>Export CSV</strong> → <code>ZAB-12.chronology.csv</code> (see 11).</li>
+</ul>
+<h3 id="75-re-running-and-changed-counts">7.5 Re-running and changed counts</h3>
+<ul>
+<li><strong>Re-run matching</strong> (e.g. after changing the tolerance) asks whether to keep the groups you
+    edited by hand.</li>
+<li>If a counter later changes their counts and you open the chronology with the new files,
+    boundaries that no longer exist are removed from their groups and new boundaries are added
+    as single groups flagged <strong>new</strong>. Review them, save again.</li>
+<li>A chronology can only be opened together with the counts of <strong>every</strong> counter it was built
+    from.</li>
+</ul>
+<hr />
+<h2 id="8-step-e--final-depths-module-3-step-1">8. Step E — Final depths (Module 3, step 1)</h2>
+<ol>
+<li>Tab <strong>3 Final</strong> → <strong>Open chronology…</strong> (<code>ZAB-12.chronology.json</code>), or <strong>Take from 2 Decide</strong>
+    when you have just made it in the same session. The counts files are not needed here.</li>
+<li>Tool <strong>1 · Cracks on path.</strong> Wherever a crack crosses the path, click its <strong>upper edge</strong>,
+    then its <strong>lower edge</strong>. A pink band shows it.<ul>
+<li>Drag an edge to adjust it; right-click or <strong>Delete</strong> removes a crack.</li>
+<li>Overlapping cracks are refused.</li>
+</ul>
+</li>
+<li>When a section is done, tick <strong>All cracks on the path are marked in this section</strong>, also
+    when it has no cracks.</li>
+<li><strong>Save</strong> → <code>ZAB-12.thickness.json</code> (the Module 3 file; it also holds Step F).</li>
+<li><strong>Export varves CSV</strong> (final depths) and <strong>Export cracks CSV</strong>.</li>
+</ol>
+<p>The section panel shows the stretch factor with and without cracks.</p>
+<blockquote>
+<p><strong>Why cracks are handled only here:</strong> all counters count on the same image, so a crack
+shifts everyone's positions equally and does not affect matching. It does add its width to
+the path length; leaving it out gives the true core depth of every varve below it.</p>
+<p><strong>Why the “complete” tick:</strong> it is exported as <code>crack_corrected</code>, so a section with no
+cracks is distinguishable from a section nobody checked.</p>
+</blockquote>
+<hr />
+<h2 id="9-step-f--varve-thickness-module-3-step-2">9. Step F — Varve thickness (Module 3, step 2)</h2>
+<p>Thickness is measured across the width of the section, not only on the path.</p>
+<h3 id="91-horizons-default">9.1 Horizons (default)</h3>
+<ol>
+<li>Tool <strong>2 · Horizons.</strong> Select a boundary: click its mark on the path, or <strong>◂ / ▸ Boundary</strong>
+    (keys <strong>[</strong> <strong>]</strong>).</li>
+<li>Click a few points along <strong>that lamina</strong>, on both sides of the path; finish with <strong>Enter</strong>,
+    a double-click or a right-click. The boundary's mark on the path is added automatically.
+    With <em>Go to the next boundary</em> ticked, the next boundary is selected.</li>
+<li>Once both boundaries of a varve have horizons, its thickness appears in the panel:<ul>
+<li>at <strong>3 positions</strong> (a setting, 1–10) spread across the width where both horizons
+    exist: the <strong>shortest distance</strong> from the base horizon to the top horizon;</li>
+<li>an <strong>area mean</strong>: the area between the two horizons divided by their shared width.</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p><strong>Why horizons:</strong> a line “drawn at an angle” is only a true thickness when it is
+perpendicular to the lamina, which is a guess on bent laminae. The shortest distance
+between two traced boundaries is perpendicular to the lamina by definition.</p>
+<p><strong>Why one horizon per boundary:</strong> each boundary is the base of the varve above and the
+top of the varve below, so it is traced once and used twice.</p>
+</blockquote>
+<h3 id="92-cracks">9.2 Cracks</h3>
+<ul>
+<li><strong>Crack along a boundary</strong> (the common case): before tracing that boundary, tick <em>Crack
+    along this boundary</em>, trace the crack's <strong>upper edge</strong> (Enter), then its <strong>lower edge</strong>
+    (Enter). The upper edge is the base of the varve above, the lower edge the top of the varve
+    below; the crack belongs to neither.</li>
+<li><strong>Crack inside a varve:</strong> tool <strong>Cracks in varves</strong>, trace the upper edge (Enter), then the
+    lower edge (Enter). Its width is subtracted from that varve at each position.</li>
+</ul>
+<h3 id="93-quick-lines-fallback">9.3 Quick lines (fallback)</h3>
+<p>For simple, parallel laminae, or where horizons are not possible: tool <strong>Quick lines</strong>, click
+the <strong>base</strong> and then the <strong>top</strong> of a varve. The line is assigned to the varve containing its
+midpoint. To subtract a crack on a line: select the line, <strong>Crack on line (K)</strong>, click the
+crack's two ends.</p>
+<p><strong>The first varve of each section</strong> cannot be measured with horizons (its top boundary lies
+in the previous image). Use a quick line there.</p>
+<h3 id="94-export">9.4 Export</h3>
+<p><strong>Export thickness CSV</strong> → <code>ZAB-12.thickness.csv</code>; <strong>Save</strong> the Module 3 file.</p>
+<p>Thickness is given in px, in mm (from DPI) and in mm corrected for the stretch factor
+(consistent with core depths).</p>
+<hr />
+<h2 id="10-exporting-images">10. Exporting images</h2>
+<p><strong>Export…</strong> (top right, or <strong>E</strong>) in any tab saves the current section with whatever is
+marked at that moment, including unsaved work. A preview shows the result.</p>
+<ul>
+<li><strong>Default: the whole section at full resolution</strong>, original orientation. Marks and labels
+    are sized in millimetres on the section, so they stay readable when printed; adjust with
+    <em>Mark and label size</em>.</li>
+<li><strong>Current view only:</strong> exactly what is on screen (zoom, rotation, brightness).</li>
+<li>Layers (path, marks, numbers, labels), brightness/contrast, a <strong>scale bar</strong> and a
+    <strong>caption strip</strong> (project, section, module, person, date, depths, counts) can be switched.</li>
+<li>The PNG stores the DPI, so it keeps its scale in other software.</li>
+<li>What is drawn follows the tab: Setup = the path; 1 Count = <strong>only your own</strong> boundaries;
+    2 Decide = all counters, matching and varve numbers; 3 Final = cracks, final varves,
+    horizons and measurements.</li>
+</ul>
+<p>Images are for figures, notes and discussion. The JSON and CSV files remain the record.</p>
+<hr />
+<h2 id="11-the-output-files-and-how-to-use-them">11. The output files and how to use them</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Written in</th>
+<th>One row per</th>
+<th>Main columns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>…P2.counts.csv</code></td>
+<td>1 Count</td>
+<td>boundary of one counter</td>
+<td><code>section, person, seq, s_mm, core_depth_mm</code></td>
+</tr>
+<tr>
+<td><code>chronology.csv</code></td>
+<td>2 Decide</td>
+<td>matched group</td>
+<td><code>varve_no, included, status, n_agree, n_counters, persons, core_depth_mm, top_mm, bottom_mm, unc_pos_cum, unc_neg_cum</code></td>
+</tr>
+<tr>
+<td><code>varves.csv</code></td>
+<td>3 Final</td>
+<td>final varve</td>
+<td><code>varve_no, status, top_depth_mm, bottom_depth_mm, bottom_depth_uncorrected_mm, unc_pos_cum, unc_neg_cum, crack_corrected</code></td>
+</tr>
+<tr>
+<td><code>cracks.csv</code></td>
+<td>3 Final</td>
+<td>crack on the path</td>
+<td><code>s_upper_mm, s_lower_mm, width_mm, core_depth_mm</code></td>
+</tr>
+<tr>
+<td><code>thickness.csv</code></td>
+<td>3 Final</td>
+<td>measurement</td>
+<td><code>varve_no, method, position_no, thickness_mm, thickness_corr_mm, crack_px</code></td>
+</tr>
+</tbody>
+</table>
+<p>Notes:</p>
+<ul>
+<li>Depths are in <strong>mm</strong> of composite core depth; <code>varves.csv</code> depths are crack-corrected.</li>
+<li><code>unc_pos_cum</code> / <code>unc_neg_cum</code> are cumulative from the top of the record. Ages, if you need
+    them, are e.g. <code>coring_year − varve_no + 1</code>, with the uncertainty range from these columns.</li>
+<li>In <code>thickness.csv</code>, <code>method</code> is <code>horizon</code> (one row per position), <code>horizon_area</code> (area
+    mean) or <code>line</code>. Keep methods apart when summarising.</li>
+<li>Rejected groups in <code>chronology.csv</code> have an empty <code>varve_no</code>; they are kept because they
+    carry the positive uncertainty.</li>
+</ul>
+<p>Reading them in R, for example:</p>
+<pre><code class="language-r">library(tidyverse)
+
+varves &lt;- read_csv(&quot;ZAB-12.varves.csv&quot;)
+thickness &lt;- read_csv(&quot;ZAB-12.thickness.csv&quot;) |&gt;
+  filter(method == &quot;horizon&quot;) |&gt;
+  summarise(thickness_mm = mean(thickness_corr_mm), n = n(), .by = varve_no)
+
+varves |&gt;
+  left_join(thickness, by = &quot;varve_no&quot;)
+</code></pre>
+<p>The JSON files are plain text and can be read with <code>jsonlite::read_json()</code> when you need the
+full detail (e.g. the edit log of the matching).</p>
+<hr />
+<h2 id="12-working-with-coauthors-sharing-and-portability">12. Working with coauthors: sharing and portability</h2>
+<h3 id="121-the-project-package">12.1 The project package</h3>
+<p>Everything is ordinary files. A project is portable when these travel together:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Needed by</th>
+<th>Written by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>index.html</code> and <code>manual.html</code></td>
+<td>everyone</td>
+<td>— (keep one copy of each in the folder)</td>
+</tr>
+<tr>
+<td>images</td>
+<td>everyone</td>
+<td>— (never change them)</td>
+</tr>
+<tr>
+<td><code>ZAB-12.project.json</code></td>
+<td>everyone</td>
+<td>project lead</td>
+</tr>
+<tr>
+<td><code>counts/ZAB-12.&lt;id&gt;.counts.json</code></td>
+<td>project lead (Step D)</td>
+<td>each counter, own file only</td>
+</tr>
+<tr>
+<td><code>ZAB-12.chronology.json</code></td>
+<td>Step E/F</td>
+<td>project lead</td>
+</tr>
+<tr>
+<td><code>ZAB-12.thickness.json</code></td>
+<td>Step E/F</td>
+<td>project lead (or whoever measures)</td>
+</tr>
+</tbody>
+</table>
+<p>Files are found through the open dialogs, so the folder can live anywhere (a USB stick,
+a network drive, a cloud folder) and be organised as you like. The tool never needs a fixed
+path.</p>
+<h3 id="122-distributing-a-project-to-counters">12.2 Distributing a project to counters</h3>
+<ol>
+<li>Finish and save Steps A–B. <strong>Freeze</strong> the project file from now on (12.5).</li>
+<li>Send each counter: <code>index.html</code>, the images and <code>ZAB-12.project.json</code> (a zip, a shared
+    folder or a USB stick).</li>
+<li>Each counter adds their id in <strong>I am</strong>, counts (Step C), saves <code>ZAB-12.&lt;id&gt;.counts.json</code>
+    and sends <strong>only that file</strong> back.</li>
+<li>The project lead collects all counts files in <code>counts/</code> and continues with Step D.</li>
+</ol>
+<p>Counters never need each other's files, and should not see them before Step D.</p>
+<h3 id="123-shared-folders-dropbox-onedrive-nextcloud-google-drive-network-drive">12.3 Shared folders (Dropbox, OneDrive, Nextcloud, Google Drive, network drive)</h3>
+<p>Working in one shared folder is convenient and safe if <strong>everyone writes only their own
+files</strong>:</p>
+<ul>
+<li>Counters write only <code>counts/ZAB-12.&lt;their id&gt;.counts.json</code>.</li>
+<li>Only the project lead saves the project, chronology and Module 3 files.</li>
+<li>Do not open and save the same file on two computers at the same time; the last save wins.</li>
+<li>With Chrome or Edge, <em>Save</em> writes back into the shared folder. With other browsers, move
+    the downloaded file into the folder, replacing the old one.</li>
+</ul>
+<h3 id="124-rules-that-keep-files-linked">12.4 Rules that keep files linked</h3>
+<table>
+<thead>
+<tr>
+<th>Do not</th>
+<th>Why</th>
+<th>If it happened</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Edit, re-save, convert or compress an image after adding it</td>
+<td>The SHA-256 changes and the tool refuses the image (“content differs”)</td>
+<td>Use the original file. If the original is lost, add the new image as a new section and redo its setup.</td>
+</tr>
+<tr>
+<td>Rename the project</td>
+<td>Counts and chronology files check the project name</td>
+<td>Rename it back.</td>
+</tr>
+<tr>
+<td>Change a path after counting has started</td>
+<td>Counts are re-attached to the nearest segment; small shifts are possible</td>
+<td>Avoid; if necessary, tell everyone and re-check in Step D.</td>
+</tr>
+<tr>
+<td>Change person ids after counting</td>
+<td>Ids are written into the counts files</td>
+<td>Keep ids stable.</td>
+</tr>
+<tr>
+<td>Use different versions of <code>index.html</code></td>
+<td>Newer versions read older files, but mixed versions are harder to trace</td>
+<td>Keep one copy of <code>index.html</code> in the project folder.</td>
+</tr>
+</tbody>
+</table>
+<p>Renaming <strong>image files</strong> or <strong>sections</strong>, and moving folders, is harmless: images are
+recognised by content, and counts follow a renamed section by its image hash.</p>
+<h3 id="125-freezing-a-project">12.5 Freezing a project</h3>
+<p>There is no lock button; freezing is an agreement: after the project file is sent to
+counters, only the project lead changes it, and only for things that do not move paths (for
+example adding a person). Keep a dated copy (e.g. <code>ZAB-12.project.2026-11-24.json</code>) of the
+version that was sent out.</p>
+<h3 id="126-moving-to-another-computer">12.6 Moving to another computer</h3>
+<p>Copy the folder. Nothing else is needed.</p>
+<p>The browser also keeps unsaved work in its own storage and offers it back the next time the
+same file is opened — but <strong>only in that browser on that computer</strong>. It is a safety net, not
+a way to transfer work. Always save.</p>
+<h3 id="127-version-control-and-archiving">12.7 Version control and archiving</h3>
+<ul>
+<li>The JSON and CSV files are small text files and work well in Git (diffs show exactly what
+    changed). Keep large scans outside Git, or use Git LFS.</li>
+<li>For a publication or data repository, archive: <code>index.html</code>, the images, all JSON files and
+    the CSV exports. Together they let anyone reproduce and inspect every step, including who
+    counted what and every manual edit of the matching.</li>
+</ul>
+<hr />
+<h2 id="13-why-it-works-this-way">13. Why it works this way</h2>
+<table>
+<thead>
+<tr>
+<th>Choice</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One HTML file, runs locally</td>
+<td>No installation, any operating system, works offline, data never leave the computer.</td>
+</tr>
+<tr>
+<td>Three modules connected by files</td>
+<td>Each step can be done by a different person, checked and redone without touching the others.</td>
+</tr>
+<tr>
+<td>Images identified by SHA-256</td>
+<td>Everybody provably works on the same image, whatever it is called.</td>
+</tr>
+<tr>
+<td>Paths made of segments joined into one length</td>
+<td>Step around disturbances without breaking the depth axis.</td>
+</tr>
+<tr>
+<td>Depth = linear between two anchors per section</td>
+<td>Corrects shrinkage, keeps errors inside one section.</td>
+</tr>
+<tr>
+<td>Sections meet exactly (end of <em>n</em> = start of <em>n+1</em>)</td>
+<td>No varve counted twice or skipped.</td>
+</tr>
+<tr>
+<td>Blind counting, one file per counter</td>
+<td>Independent counts are what Method C needs.</td>
+</tr>
+<tr>
+<td>No “uncertain” flag</td>
+<td>Uncertainty comes from disagreement between counters, not from self-assessment.</td>
+</tr>
+<tr>
+<td>Tolerance relative to local varve thickness</td>
+<td>Works for thin and thick varves alike.</td>
+</tr>
+<tr>
+<td>Strict majority; decisions cannot be overridden</td>
+<td>Objective, reproducible, as in Method C.</td>
+</tr>
+<tr>
+<td>Separate positive and negative uncertainty</td>
+<td>Shows whether the chronology is more likely too short or too long.</td>
+</tr>
+<tr>
+<td>Cracks only in Module 3</td>
+<td>They do not affect counting or matching, only depths and thickness.</td>
+</tr>
+<tr>
+<td>Horizons instead of free lines</td>
+<td>Thickness perpendicular to the lamina, also where laminae bend.</td>
+</tr>
+<tr>
+<td>Varve numbers, no calendar ages</td>
+<td>Works for floating chronologies; anchoring is a separate, explicit step.</td>
+</tr>
+<tr>
+<td>JSON for state, CSV for analysis</td>
+<td>Re-openable, readable, and tidy data for R.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="14-troubleshooting">14. Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Message or problem</th>
+<th>Cause and fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>“The image … is not loaded”</td>
+<td>Opening a project does not load images. Use <strong>Load images…</strong> in the Project tab.</td>
+</tr>
+<tr>
+<td>“…content differs from the image recorded… Not loaded”</td>
+<td>The image file has changed since it was added. Use the original (12.4).</td>
+</tr>
+<tr>
+<td>“JPEG-compressed TIFF is not supported”</td>
+<td>Re-save as uncompressed or LZW TIFF, then add it (before counting).</td>
+</tr>
+<tr>
+<td>No DPI, or the stretch factor is far from 1</td>
+<td>Enter the scanner's DPI or calibrate from a scale bar (5.1); check the depth anchors.</td>
+</tr>
+<tr>
+<td>“These counts belong to P1…”</td>
+<td>Choose the right person in <strong>I am</strong> before opening a counts file.</td>
+</tr>
+<tr>
+<td>“These counts belong to project …”</td>
+<td>The counts file was made for another project name.</td>
+</tr>
+<tr>
+<td>“At or after the path end…”</td>
+<td>That boundary is counted at the start of the next section.</td>
+</tr>
+<tr>
+<td>Gap or overlap between sections (Project tab)</td>
+<td>Make each section's path end equal the next section's path start (5.3).</td>
+</tr>
+<tr>
+<td>“Load the counts of P3 first…”</td>
+<td>A chronology needs the counts of all counters it was built from.</td>
+</tr>
+<tr>
+<td>“This chronology has no saved positions”</td>
+<td>It was saved by an older version. Open it in 2 Decide with the counts and save again.</td>
+</tr>
+<tr>
+<td>Varve thickness says “top boundary in the previous section”</td>
+<td>First varve of a section: use a quick line (9.3).</td>
+</tr>
+<tr>
+<td>Saving only downloads files</td>
+<td>Firefox/Safari: move the file into the project folder, or use Chrome/Edge.</td>
+</tr>
+<tr>
+<td>Browser offers to restore unsaved changes</td>
+<td>Accept to recover work that was not saved; then save.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="15-keyboard-and-mouse-reference">15. Keyboard and mouse reference</h2>
+<p><strong>Everywhere:</strong> wheel = zoom · drag (or Space+drag, middle button) = pan · arrows = pan ·
+<strong>F</strong> fit · <strong>R</strong> rotate view · <strong>E</strong> export image · <strong>Ctrl+Z / Ctrl+Y</strong> undo / redo ·
+<strong>Ctrl+S</strong> save · <strong>Esc</strong> cancel.</p>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Mouse</th>
+<th>Keys</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Setup</td>
+<td>click = add point · double-/right-click = finish segment · drag point = move · right-click point = delete</td>
+<td><strong>Enter</strong> finish · <strong>Shift</strong>+click ignore joint guide · <strong>Delete</strong> remove point</td>
+</tr>
+<tr>
+<td>1 Count</td>
+<td>click = add boundary · drag mark = move · right-click mark = delete</td>
+<td><strong>D / A</strong> along the path · <strong>N</strong> numbers · <strong>Delete</strong> remove selected</td>
+</tr>
+<tr>
+<td>2 Decide</td>
+<td>click mark = select group · <strong>Shift+click</strong> = merge groups</td>
+<td><strong>X</strong> detach · <strong>C</strong> checked · <strong>.</strong> / <strong>,</strong> next / previous flag</td>
+</tr>
+<tr>
+<td>3 Final</td>
+<td>depends on the tool (cracks on path, horizons, quick lines, cracks in varves) · right-click = finish a trace or delete</td>
+<td><strong>Enter</strong> finish trace · <strong>[ ]</strong> previous / next boundary · <strong>K</strong> crack on line · <strong>Delete</strong> remove selected</td>
+</tr>
+</tbody>
+</table>
+  </article></main>
+</div>
+<script>
+  // tables scroll sideways on narrow screens
+  document.querySelectorAll('article table').forEach(t => {
+    const w = document.createElement('div'); w.className = 'table-wrap';
+    t.parentNode.insertBefore(w, t); w.appendChild(t);
+  });
+  // theme toggle (remembered in this browser when possible)
+  const root = document.documentElement;
+  try { const t = localStorage.getItem('varves-manual-theme'); if (t) root.dataset.theme = t; } catch (e) {}
+  document.getElementById('theme').addEventListener('click', () => {
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('varves-manual-theme', root.dataset.theme); } catch (e) {}
+  });
+  // highlight the current chapter in the contents
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const heads = links.map(a => document.getElementById(decodeURIComponent(a.hash.slice(1)))).filter(Boolean);
+  const mark = () => {
+    let cur = heads[0];
+    for (const h of heads) if (h.getBoundingClientRect().top < 120) cur = h;
+    links.forEach(a => a.classList.toggle('active', cur && a.hash === '#' + cur.id));
+  };
+  addEventListener('scroll', mark, { passive: true }); mark();
+</script>
+</body>
+</html>

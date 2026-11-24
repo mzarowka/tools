@@ -83,6 +83,7 @@ choose these.
 ```
 ZAB-12/
   index.html                     ← the tool (a copy, so everyone uses the same version)
+  manual.html                    ← this manual (opened by the tool's “Manual” link)
   images/                        ← the thin-section scans, never edited
   ZAB-12.project.json
   counts/                        ← one file per counter
@@ -474,7 +475,7 @@ Everything is ordinary files. A project is portable when these travel together:
 
 | File | Needed by | Written by |
 |---|---|---|
-| `index.html` | everyone | — (keep one copy in the folder) |
+| `index.html` and `manual.html` | everyone | — (keep one copy of each in the folder) |
 | images | everyone | — (never change them) |
 | `ZAB-12.project.json` | everyone | project lead |
 | `counts/ZAB-12.<id>.counts.json` | project lead (Step D) | each counter, own file only |

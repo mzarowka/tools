@@ -1,0 +1,45 @@
+# Regenerates varves/manual.html whenever varves/MANUAL.md (or the builder) changes on main.
+name: Build varves manual
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - varves/MANUAL.md
+      - varves/build_manual.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: varves-manual
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python-Markdown
+        run: pip install markdown==3.7
+
+      - name: Build manual.html
+        run: python varves/build_manual.py
+
+      - name: Commit manual.html if it changed
+        run: |
+          if git diff --quiet -- varves/manual.html; then
+            echo "manual.html is up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add varves/manual.html
+          git commit -m "Varves: regenerate manual.html from MANUAL.md"
+          git push

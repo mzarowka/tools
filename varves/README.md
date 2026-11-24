@@ -5,7 +5,9 @@ open it in a browser (Chrome or Edge recommended), nothing to install, works off
 and images never leave the computer.
 
 **Start here: [MANUAL.md](MANUAL.md)** — the complete guide from A to Z, including how to share a
-project with coauthors and why each choice was made. The technical design (modules, Method C,
+project with coauthors and why each choice was made. The same manual as a web page is
+[`manual.html`](manual.html) (opened by the tool's **Manual** link); it is generated from `MANUAL.md` by
+[`build_manual.py`](build_manual.py) automatically on every push to `main` — edit only `MANUAL.md`. The technical design (modules, Method C,
 file formats) is in [DESIGN.md](DESIGN.md).
 **Version 4** contains everything in the design: project setup, Module 1 (blind counting), Module 2
 (Method C), Module 3 (cracks, final varve depths, thickness) and image export.
